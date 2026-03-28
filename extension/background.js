@@ -1,11 +1,14 @@
 const SUPABASE_URL = "https://sagbrkjfdqxqndrfekkp.supabase.co";
 const SUPABASE_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhZ2Jya2pmZHF4cW5kcmZla2twIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MTkzNjgsImV4cCI6MjA5MDI5NTM2OH0.R3X09rKRcUES59xnLP_dsQacq6b5gg2QiTIfbTOeTxI";
+const GEMINI_API_KEY = "AIzaSyCwZvnrAeR2QhZ-NIbu9GZQQv1VeSRkXvg"; // TODO: replace if key is rotated
+
+const VALID_CATEGORIES = ["learning", "entertainment", "social media", "productivity", "news", "other"];
 
 // ─── In-memory state ────────────────────────────────────────────────────────
-let activeTabId = null;      // which tab is currently focused
-let activeStartTime = null;  // when the user started viewing that tab
-const tabEventMap = {};      // tabId → supabase event id
+let activeTabId = null;
+let activeStartTime = null;
+const tabEventMap = {}; // tabId → supabase event id
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 async function getOrCreateSession() {
@@ -24,6 +27,51 @@ async function getOrCreateSession() {
   const data = await res.json();
   await chrome.storage.local.set({ supabase_session: data });
   return data;
+}
+
+// ─── Gemini categorization ───────────────────────────────────────────────────
+async function classifyWithGemini(url, title) {
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: `Classify this website into exactly one category.
+URL: ${url}
+Title: ${title}
+
+Categories: learning, entertainment, social media, productivity, news, other
+
+Rules:
+- "learning" = tutorials, courses, documentation, educational videos, Wikipedia
+- "entertainment" = YouTube (non-educational), Netflix, gaming, memes
+- "social media" = Twitter/X, Instagram, Reddit, Facebook, TikTok, LinkedIn
+- "productivity" = email, coding, Google Docs, project management tools
+- "news" = news articles, journalism, blogs about current events
+- "other" = anything that doesn't fit above
+
+Reply with only the category word, nothing else.`,
+                },
+              ],
+            },
+          ],
+        }),
+      }
+    );
+
+    const data = await res.json();
+    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim().toLowerCase();
+    return VALID_CATEGORIES.includes(raw) ? raw : "other";
+  } catch (err) {
+    console.warn("Gemini classification failed:", err);
+    return "uncategorized";
+  }
 }
 
 // ─── Create event in Supabase, returns the new event's id ───────────────────
@@ -46,12 +94,12 @@ async function createEvent(tab) {
       "Content-Type": "application/json",
       apikey: SUPABASE_KEY,
       Authorization: `Bearer ${session.access_token}`,
-      Prefer: "return=representation", // tells Supabase to return the created row
+      Prefer: "return=representation",
     },
     body: JSON.stringify({
       url,
       title: tab.title,
-      category: "uncategorized",
+      category: "uncategorized", // placeholder — Gemini will update this shortly
       duration: 0,
       domain,
       user_id: session.user?.id,
@@ -61,16 +109,37 @@ async function createEvent(tab) {
 
   const [created] = await res.json();
   console.log("Event created:", created);
+
+  // Classify in the background — don't await so tab tracking isn't delayed
+  if (created?.id) {
+    classifyWithGemini(url, tab.title).then((category) => {
+      patchEventCategory(created.id, category, session.access_token);
+    });
+  }
+
   return created?.id ?? null;
 }
 
-// ─── Patch duration + ended_at on an existing event ────────────────────────
+// ─── Patch category once Gemini responds ─────────────────────────────────────
+async function patchEventCategory(eventId, category, token) {
+  await fetch(`${SUPABASE_URL}/rest/v1/events?id=eq.${eventId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ category }),
+  });
+  console.log(`Category set → ${category} (event ${eventId})`);
+}
+
+// ─── Patch duration + ended_at on an existing event ─────────────────────────
 async function finalizeEvent(tabId) {
   if (!activeStartTime || !tabEventMap[tabId]) return;
 
-  const duration = Math.round((Date.now() - activeStartTime) / 1000); // seconds
+  const duration = Math.round((Date.now() - activeStartTime) / 1000);
   const eventId = tabEventMap[tabId];
-
   const session = await getOrCreateSession();
 
   await fetch(`${SUPABASE_URL}/rest/v1/events?id=eq.${eventId}`, {
@@ -93,8 +162,6 @@ async function finalizeEvent(tabId) {
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status !== "complete" || !tab.url) return;
 
-  // If this tab was already being tracked (e.g. user navigated within same tab)
-  // finalize the old event first
   if (tabId === activeTabId && tabEventMap[tabId]) {
     await finalizeEvent(tabId);
     activeStartTime = Date.now();
@@ -103,20 +170,17 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   const eventId = await createEvent(tab);
   if (eventId) {
     tabEventMap[tabId] = eventId;
-    // Start timing if this is the currently active tab
     if (tabId === activeTabId) {
       activeStartTime = Date.now();
     }
   }
 });
 
-// ─── User switches tabs ───────────────────────────────────────────────────────
+// ─── User switches tabs ──────────────────────────────────────────────────────
 chrome.tabs.onActivated.addListener(async ({ tabId }) => {
-  // Finalize the tab we're leaving
   if (activeTabId !== null && activeTabId !== tabId) {
     await finalizeEvent(activeTabId);
   }
-
   activeTabId = tabId;
   activeStartTime = Date.now();
 });
@@ -124,13 +188,11 @@ chrome.tabs.onActivated.addListener(async ({ tabId }) => {
 // ─── Chrome window gains/loses focus ────────────────────────────────────────
 chrome.windows.onFocusChanged.addListener(async (windowId) => {
   if (windowId === chrome.windows.WINDOW_ID_NONE) {
-    // User switched away from Chrome entirely — stop the clock
     if (activeTabId !== null) {
       await finalizeEvent(activeTabId);
       activeStartTime = null;
     }
   } else {
-    // User came back to Chrome — restart the clock
     activeStartTime = Date.now();
   }
 });
