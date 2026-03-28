@@ -19,13 +19,6 @@
       justify-content: center;
     }
 
-    #preview-canvas {
-      position: fixed;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-    }
-
     /* Landing screen */
     #landing {
       position: relative;
@@ -146,26 +139,24 @@
 </head>
 <body>
 
-  <canvas id="preview-canvas"></canvas>
-
   <!-- Landing screen -->
   <div id="landing">
     <h1>Mind<span>Map</span></h1>
-    <p>Point your camera at a flat surface to see the health of your brain.</p>
+    <p>Point the camera at your face to see the health of your brain.</p>
     <div id="state-badge-landing" class="state-badge"></div>
     <button id="start-btn">Start AR</button>
-    <p id="no-xr-msg">
-      WebXR AR is not supported on this device.<br/>
-      Try opening this page in Chrome on Android.
-    </p>
+    <p id="no-xr-msg">Camera access is required. Please allow camera permissions and try again.</p>
   </div>
 
   <!-- AR overlay UI -->
   <div id="ar-ui">
     <div id="ar-state-badge" class="state-badge"></div>
-    <div id="ar-hint">Move camera to detect a surface</div>
+    <div id="ar-hint">Point camera at your face</div>
     <button id="exit-btn">Exit AR</button>
   </div>
+
+  <!-- MindAR: face-tracking AR, works on iPhone Safari + Android Chrome -->
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-face-three.prod.js"></script>
 
   <script type="importmap">
   {
@@ -302,19 +293,12 @@
       }
     }
 
-    // ─── Three.js setup ──────────────────────────────────────────────────────────
-    const canvas = document.getElementById('preview-canvas');
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
-      alpha: true,
-      antialias: true,
+    // ─── Three.js + MindAR setup ─────────────────────────────────────────────────
+    const mindarThree = new window.MINDAR.FACE.MindARThree({
+      container: document.body,
     });
+    const { renderer, scene, camera } = mindarThree;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.xr.enabled = true;
-
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
 
     // Lighting
     const ambient = new THREE.AmbientLight(0xffffff, 0.4);
@@ -326,23 +310,16 @@
     pointLight.position.set(0, 0.5, 0);
     scene.add(pointLight);
 
-    // Reticle (surface detection indicator)
-    const reticleGeo = new THREE.RingGeometry(0.08, 0.1, 32).rotateX(-Math.PI / 2);
-    const reticleMat = new THREE.MeshBasicMaterial({ color: 0x00ffcc, side: THREE.DoubleSide });
-    const reticle = new THREE.Mesh(reticleGeo, reticleMat);
-    reticle.matrixAutoUpdate = false;
-    reticle.visible = false;
-    scene.add(reticle);
-
-    // Brain model container
+    // Brain model container — anchored to forehead landmark, floats above head
     const brainGroup = new THREE.Group();
-    brainGroup.visible = false;
-    scene.add(brainGroup);
+    brainGroup.position.set(0, 0.5, 0); // lift above the forehead anchor point
+    const anchor = mindarThree.addAnchor(10); // landmark 10 = top of forehead
+    brainGroup.visible = true;
+    anchor.group.add(brainGroup);
 
     let brainMeshes = [];
     let brainMaterial = null;
     let currentState = 'healthy';
-    let brainPlaced = false;
 
     const clock = new THREE.Clock();
 
@@ -441,149 +418,68 @@
       brainGroup.rotation.y += s.rotSpeed;
     }
 
-    // Desktop preview loop (before AR starts)
-    function previewLoop() {
+    // Shared animation loop — runs continuously; MindAR controls camera during AR
+    renderer.setAnimationLoop(() => {
       const elapsed = clock.getElapsedTime();
       animateBrain(elapsed);
       renderer.render(scene, camera);
-    }
-    renderer.setAnimationLoop(previewLoop);
+    });
 
-    // Position brain for desktop preview
-    camera.position.set(0, 0, 1);
-    brainGroup.visible = true;
-
-    // ─── WebXR AR ────────────────────────────────────────────────────────────────
-    let xrSession = null;
-    let hitTestSource = null;
-    let hitTestSourceRequested = false;
-
+    // ─── MindAR AR controls ───────────────────────────────────────────────────────
     const startBtn = document.getElementById('start-btn');
     const landing = document.getElementById('landing');
     const arUI = document.getElementById('ar-ui');
-    const arHint = document.getElementById('ar-hint');
 
-    async function startAR() {
-      if (!navigator.xr) {
+    // ─── Start button ─────────────────────────────────────────────────────────────
+    startBtn.addEventListener('click', async () => {
+      startBtn.disabled = true;
+      startBtn.textContent = 'Requesting camera…';
+
+      // Explicitly request front camera permission first so the browser shows the prompt
+      try {
+        await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+      } catch (err) {
+        startBtn.textContent = 'Start AR';
+        startBtn.disabled = false;
+        document.getElementById('no-xr-msg').textContent =
+          err.name === 'NotAllowedError'
+            ? 'Camera permission denied. Please allow camera access in your browser settings and try again.'
+            : 'Could not access camera: ' + err.message;
         document.getElementById('no-xr-msg').style.display = 'block';
         return;
       }
 
-      const supported = await navigator.xr.isSessionSupported('immersive-ar').catch(() => false);
-      if (!supported) {
-        document.getElementById('no-xr-msg').style.display = 'block';
-        return;
-      }
-
-      xrSession = await navigator.xr.requestSession('immersive-ar', {
-        requiredFeatures: ['hit-test'],
-        optionalFeatures: ['dom-overlay'],
-        domOverlay: { root: arUI },
-      });
-
-      renderer.xr.setReferenceSpaceType('local');
-      await renderer.xr.setSession(xrSession);
-
-      // Reset state for AR
-      brainPlaced = false;
-      reticle.visible = false;
-      brainGroup.visible = false;
-      hitTestSourceRequested = false;
-      hitTestSource = null;
-
+      startBtn.textContent = 'Loading…';
       landing.style.display = 'none';
       arUI.style.display = 'block';
 
-      // Place brain on tap
-      xrSession.addEventListener('select', onSelect);
-
-      xrSession.addEventListener('end', () => {
-        hitTestSource = null;
-        hitTestSourceRequested = false;
+      try {
+        await mindarThree.start();
+      } catch (err) {
+        console.error('MindAR failed to start:', err);
         landing.style.display = 'flex';
         arUI.style.display = 'none';
-        brainGroup.visible = true;
-        reticle.visible = false;
-        renderer.setAnimationLoop(previewLoop);
-        xrSession = null;
-      });
-
-      renderer.setAnimationLoop(xrLoop);
-    }
-
-    function onSelect() {
-      if (reticle.visible && !brainPlaced) {
-        brainGroup.position.setFromMatrixPosition(reticle.matrix);
-        brainGroup.position.y += 0.05; // lift slightly above surface
-        brainGroup.visible = true;
-        brainPlaced = true;
-        arHint.style.opacity = '0';
+        startBtn.textContent = 'Start AR';
+        startBtn.disabled = false;
+        document.getElementById('no-xr-msg').textContent = 'AR failed to start. Try refreshing the page.';
+        document.getElementById('no-xr-msg').style.display = 'block';
       }
-    }
-
-    function xrLoop(timestamp, frame) {
-      if (!frame) return;
-
-      const elapsed = clock.getElapsedTime();
-      animateBrain(elapsed);
-
-      const referenceSpace = renderer.xr.getReferenceSpace();
-      const session = renderer.xr.getSession();
-
-      // Request hit test source once
-      if (!hitTestSourceRequested) {
-        session.requestReferenceSpace('viewer').then((viewerSpace) => {
-          session.requestHitTestSource({ space: viewerSpace }).then((src) => {
-            hitTestSource = src;
-          });
-        });
-        hitTestSourceRequested = true;
-      }
-
-      // Update reticle from hit test results
-      if (hitTestSource) {
-        const results = frame.getHitTestResults(hitTestSource);
-        if (results.length > 0) {
-          const pose = results[0].getPose(referenceSpace);
-          reticle.visible = !brainPlaced;
-          reticle.matrix.fromArray(pose.transform.matrix);
-        } else {
-          reticle.visible = false;
-        }
-      }
-
-      renderer.render(scene, camera);
-    }
+    });
 
     // ─── Exit AR ─────────────────────────────────────────────────────────────────
-    document.getElementById('exit-btn').addEventListener('click', () => {
-      if (xrSession) xrSession.end();
+    document.getElementById('exit-btn').addEventListener('click', async () => {
+      await mindarThree.stop();
+      landing.style.display = 'flex';
+      arUI.style.display = 'none';
+      startBtn.disabled = false;
     });
 
-    // ─── Start button ─────────────────────────────────────────────────────────────
-    startBtn.addEventListener('click', startAR);
-
-    // ─── Check WebXR support on load ─────────────────────────────────────────────
-    if (!navigator.xr) {
-      startBtn.textContent = 'AR Not Supported';
+    // ─── Check camera support on load ────────────────────────────────────────────
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      startBtn.textContent = 'Camera Not Supported';
       startBtn.disabled = true;
       document.getElementById('no-xr-msg').style.display = 'block';
-    } else {
-      navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
-        if (!supported) {
-          startBtn.textContent = 'AR Not Supported';
-          startBtn.disabled = true;
-          document.getElementById('no-xr-msg').style.display = 'block';
-        }
-      });
     }
-
-    // ─── Handle resize ────────────────────────────────────────────────────────────
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
 
     // ─── Init: fetch brain state ──────────────────────────────────────────────────
     fetchBrainState().then((state) => {
