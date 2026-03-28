@@ -1,5 +1,6 @@
-const SUPABASE_URL = "https://sagbrkjfdqxqndrfekkp.supabase.co";
-const SUPABASE_KEY = "sb_publishable_MGlKlUWcoPwcpDEx93n2ZQ_oQesODLJ";
+export const SUPABASE_URL = "https://sagbrkjfdqxqndrfekkp.supabase.co";
+export const SUPABASE_KEY = "sb_publishable_MGlKlUWcoPwcpDEx93n2ZQ_oQesODLJ";
+export const GEMINI_API_KEY = "AIzaSyCwZvnrAeR2QhZ-NIbu9GZQQv1VeSRkXvg";
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status === "complete" && tab.url) {
@@ -8,6 +9,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
       title: tab.title,
       category: "uncategorized",
       duration: 0,
+      created_at: new Date().toISOString(),
     };
 
     await fetch(`${SUPABASE_URL}/rest/v1/events`, {
