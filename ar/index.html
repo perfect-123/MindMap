@@ -155,21 +155,13 @@
     <button id="exit-btn">Exit AR</button>
   </div>
 
-  <!-- MindAR: face-tracking AR, works on iPhone Safari + Android Chrome -->
+  <!-- MindAR: face-tracking AR, exposes window.THREE + window.MINDAR -->
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-face-three.prod.js"></script>
+  <!-- GLTFLoader matching MindAR's bundled Three.js version -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.0/examples/js/loaders/GLTFLoader.js"></script>
 
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-    }
-  }
-  </script>
-
-  <script type="module">
-    import * as THREE from 'three';
-    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+  <script>
+    // THREE and MINDAR are now available as globals from the scripts above
 
     // ─── Supabase config ────────────────────────────────────────────────────────
     // Replace these with your actual keys once Person B shares them.
@@ -324,7 +316,7 @@
     const clock = new THREE.Clock();
 
     // Load GLTF brain model
-    const loader = new GLTFLoader();
+    const loader = new THREE.GLTFLoader();
     loader.load(
       'assets/brain.glb',
       (gltf) => {
