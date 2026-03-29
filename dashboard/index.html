@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MindMap — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #08080f;
+      --card-bg:      #0e0e1a;
+      --card-border:  #1a1a2c;
+      --text:         #e6e6f0;
+      --text-muted:   #5a5a78;
+      --text-dim:     #2a2a40;
+
+      --learning:      #1D9E75;
+      --entertainment: #D85A30;
+      --social:        #C44BE0;
+      --productivity:  #378ADD;
+      --news:          #EF9F27;
+      --other:         #7a7a8a;
+
+      --radius: 14px;
+      --gap:    16px;
+    }
+
+    body {
+      background: var(--bg);
+      background-image: radial-gradient(ellipse 80% 60% at 50% -10%, #0f0f28 0%, transparent 70%);
+      color: var(--text);
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+      padding: 28px 20px 60px;
+    }
+
+    #app { max-width: 1280px; margin: 0 auto; }
+
+    /* ── Header ─────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .logo {
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--learning);
+      box-shadow: 0 0 12px var(--learning);
+      animation: pulse-dot 2.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(0.8); }
+    }
+
+    .header-right { text-align: right; }
+
+    .subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    #last-updated {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 3px;
+    }
+
+    /* ── Grid layouts ───────────────────────────────────── */
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: var(--gap);
+      margin-bottom: var(--gap);
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--gap);
+      margin-bottom: var(--gap);
+    }
+
+    @media (max-width: 960px) {
+      .grid-3 { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 700px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+
+    /* ── Card ───────────────────────────────────────────── */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: var(--gap);
+    }
+
+    .card h2 {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 18px;
+    }
+
+    /* ── Loading ────────────────────────────────────────── */
+    #loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 360px;
+      color: var(--text-muted);
+      font-size: 14px;
+      gap: 12px;
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--card-border);
+      border-top-color: var(--learning);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Gauge ──────────────────────────────────────────── */
+    #gauge-card { display: flex; flex-direction: column; }
+
+    .gauge-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 8px;
+    }
+
+    .gauge-state {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-top: 6px;
+    }
+
+    .gauge-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    /* ── Nutrition Label ────────────────────────────────── */
+    .nl-wrap {
+      font-family: 'Inter', sans-serif;
+      border: 2px solid var(--text);
+      padding: 10px 12px;
+      max-width: 300px;
+      margin: 0 auto;
+    }
+
+    .nl-title {
+      font-size: 30px;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -1.5px;
+    }
+
+    .nl-serving {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      padding: 3px 0;
+      border-top: 1px solid var(--text-muted);
+      border-bottom: 9px solid var(--text);
+      margin: 5px 0 4px;
+    }
+
+    .nl-total-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      border-bottom: 4px solid var(--text);
+      padding-bottom: 3px;
+      margin-bottom: 3px;
+    }
+
+    .nl-total-label { font-size: 17px; font-weight: 700; }
+    .nl-total-value { font-size: 17px; font-weight: 700; }
+
+    .nl-dv-header {
+      font-size: 10px;
+      text-align: right;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--text-muted);
+      padding-bottom: 2px;
+      margin-bottom: 2px;
+    }
+
+    .nl-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 0;
+      border-bottom: 1px solid var(--card-border);
+      font-size: 12px;
+    }
+
+    .nl-row:last-of-type { border-bottom: none; }
+
+    .nl-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-right: 6px;
+    }
+
+    .nl-cat-name { display: flex; align-items: center; flex: 1; }
+
+    .nl-time { color: var(--text-muted); font-size: 10px; margin-right: 8px; }
+
+    .nl-pct { font-weight: 700; min-width: 30px; text-align: right; }
+
+    .nl-footnote {
+      font-size: 9px;
+      color: var(--text-muted);
+      border-top: 1px solid var(--text-muted);
+      margin-top: 5px;
+      padding-top: 4px;
+      line-height: 1.4;
+    }
+
+    /* ── Chart containers ───────────────────────────────── */
+    .chart-donut  { position: relative; height: 200px; }
+    .chart-bar    { position: relative; height: 240px; }
+    .chart-line   { position: relative; height: 210px; }
+
+    /* ── Heatmap ────────────────────────────────────────── */
+    .heatmap-grid {
+      display: grid;
+      grid-template-columns: 42px repeat(24, 1fr);
+      gap: 2px;
+      font-size: 9px;
+      overflow-x: auto;
+    }
+
+    .hm-corner { } /* empty */
+
+    .hm-hour-label {
+      text-align: center;
+      color: var(--text-muted);
+      padding-bottom: 3px;
+      min-width: 0;
+    }
+
+    .hm-day-label {
+      color: var(--text-muted);
+      align-self: center;
+      text-align: right;
+      padding-right: 6px;
+      white-space: nowrap;
+    }
+
+    .hm-cell {
+      height: 20px;
+      border-radius: 3px;
+      background: var(--card-border);
+      min-width: 0;
+      cursor: default;
+      transition: transform 0.1s;
+    }
+
+    .hm-cell:hover { transform: scale(1.3); z-index: 1; }
+
+    .heatmap-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .heatmap-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .heatmap-legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+    }
+
+    /* ── Top sites ──────────────────────────────────────── */
+    .sites-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .sites-table th {
+      text-align: left;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .sites-table td {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--card-border);
+      vertical-align: middle;
+    }
+
+    .sites-table tr:last-child td { border-bottom: none; }
+
+    .site-domain { font-weight: 500; font-size: 13px; }
+
+    .cat-badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 99px;
+      font-size: 10px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .site-time {
+      text-align: right;
+      color: var(--text-muted);
+      font-size: 12px;
+      padding-right: 12px;
+      white-space: nowrap;
+    }
+
+    .bar-cell { width: 80px; }
+
+    .site-bar-track {
+      height: 5px;
+      background: var(--card-border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .site-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+    }
+
+    /* ── Streak ─────────────────────────────────────────── */
+    .streak-stats {
+      display: flex;
+      gap: 28px;
+      margin-bottom: 18px;
+    }
+
+    .streak-stat-val {
+      font-size: 32px;
+      font-weight: 900;
+      letter-spacing: -2px;
+      line-height: 1;
+    }
+
+    .streak-stat-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .streak-dots {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .streak-dot {
+      width: 13px;
+      height: 13px;
+      border-radius: 3px;
+      cursor: default;
+      transition: transform 0.1s;
+    }
+
+    .streak-dot:hover { transform: scale(1.4); }
+    .streak-dot.on    { background: var(--learning); }
+    .streak-dot.off   { background: var(--card-border); }
+
+    .streak-legend {
+      display: flex;
+      gap: 12px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .streak-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    /* ── No data placeholder ────────────────────────────── */
+    .no-data {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 120px;
+      color: var(--text-muted);
+      font-size: 13px;
+      gap: 8px;
+    }
+
+    .no-data-icon { font-size: 26px; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="logo">
+      <div class="logo-dot"></div>
+      MindMap
+    </div>
+    <div class="header-right">
+      <div class="subtitle">Brain Nutrition Dashboard</div>
+      <div id="last-updated"></div>
+    </div>
+  </header>
+
+  <div id="loading">
+    <div class="spinner"></div>
+    Fetching your brain data…
+  </div>
+
+  <div id="content" style="display:none">
+
+    <!-- Row 1: Gauge · Nutrition Label · Donut -->
+    <div class="grid-3">
+      <div class="card" id="gauge-card"><h2>Brain Health Score — 7 Days</h2></div>
+      <div class="card" id="nutrition-card"><h2>Today's Nutrition Label</h2></div>
+      <div class="card" id="donut-card"><h2>Today's Diet Breakdown</h2></div>
+    </div>
+
+    <!-- Row 2: Weekly stacked bar -->
+    <div class="card" id="weekly-card"><h2>Last 7 Days — Time by Category</h2></div>
+
+    <!-- Row 3: 30-day trend line -->
+    <div class="card" id="trend-card"><h2>30-Day Learning Trend</h2></div>
+
+    <!-- Row 4: Heatmap -->
+    <div class="card" id="heatmap-card"><h2>Time-of-Day Heatmap — Last 7 Days</h2></div>
+
+    <!-- Row 5: Top sites + Streak -->
+    <div class="grid-2">
+      <div class="card" id="sites-card"><h2>Top Sites This Week</h2></div>
+      <div class="card" id="streak-card"><h2>Learning Streak — Last 30 Days</h2></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─── Config ────────────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://sagbrkjfdqxqndrfekkp.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhZ2Jya2pmZHF4cW5kcmZla2twIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MTkzNjgsImV4cCI6MjA5MDI5NTM2OH0.R3X09rKRcUES59xnLP_dsQacq6b5gg2QiTIfbTOeTxI';
+
+const CATS = ['learning', 'entertainment', 'social media', 'productivity', 'news', 'other'];
+
+const CAT_COLOR = {
+  learning:       '#1D9E75',
+  entertainment:  '#D85A30',
+  'social media': '#C44BE0',
+  productivity:   '#378ADD',
+  news:           '#EF9F27',
+  other:          '#7a7a8a',
+};
+
+const CAT_LABEL = {
+  learning:       'Learning',
+  entertainment:  'Entertainment',
+  'social media': 'Social Media',
+  productivity:   'Productivity',
+  news:           'News',
+  other:          'Other',
+};
+
+const STATE_COLOR = {
+  thriving: '#00ffcc',
+  healthy:  '#88aaff',
+  sluggish: '#aa8866',
+  rotting:  '#888888',
+};
+
+const STATE_LABEL = {
+  thriving: 'Thriving',
+  healthy:  'Healthy',
+  sluggish: 'Sluggish',
+  rotting:  'Rotting',
+};
+
+// ─── Utilities ─────────────────────────────────────────────────────────────
+function fmtTime(secs) {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h}h`;
+  if (m > 0) return `${m}m`;
+  return '<1m';
+}
+
+// Returns YYYY-MM-DD in local time
+function dateKey(d) {
+  return d.toLocaleDateString('en-CA');
+}
+
+// Last N calendar days as YYYY-MM-DD strings, oldest → newest
+function lastNDays(n) {
+  const keys = [];
+  for (let i = n - 1; i >= 0; i--) {
+    keys.push(dateKey(new Date(Date.now() - i * 86400000)));
+  }
+  return keys;
+}
+
+// ─── Category resolution (fallback for "uncategorized" rows) ───────────────
+function localCategoryFallback(ev) {
+  let domain = '';
+  try { domain = new URL(ev.url || '').hostname.replace(/^www\./, ''); } catch (_) {}
+  const text = (domain + ' ' + (ev.title || '')).toLowerCase();
+
+  if (/\b(twitter\.com|x\.com|instagram\.com|facebook\.com|tiktok\.com|linkedin\.com|reddit\.com|snapchat\.com|pinterest\.com|threads\.net)\b/.test(domain)) return 'social media';
+  if (/\b(bbc\.(co\.uk|com)|cnn\.com|nytimes\.com|reuters\.com|theguardian\.com|washingtonpost\.com|bloomberg\.com|apnews\.com|aljazeera\.com|techcrunch\.com|theverge\.com|wired\.com)\b/.test(domain)) return 'news';
+  if (/\b(netflix\.com|twitch\.tv|spotify\.com|soundcloud\.com|9gag\.com|imgur\.com|primevideo\.com|disneyplus\.com|hulu\.com)\b/.test(domain)) return 'entertainment';
+  if (/\b(gmail\.com|notion\.so|slack\.com|figma\.com|docs\.google\.com|trello\.com|asana\.com|calendar\.google\.com)\b/.test(domain)) return 'productivity';
+  if (/\b(wikipedia\.org|stackoverflow\.com|github\.com|coursera\.org|udemy\.com|khanacademy\.org|edx\.org|medium\.com|dev\.to|freecodecamp\.org|w3schools\.com)\b/.test(domain)) return 'learning';
+
+  if (/tutorial|course|lecture|how[ -]to|explained?|guide|learn\b/.test(text)) return 'learning';
+  if (/breaking news|headlines|politics/.test(text)) return 'news';
+  if (/\bgaming|meme|funny|comedy/.test(text)) return 'entertainment';
+  return 'other';
+}
+
+function resolveCategory(ev) {
+  const cat = (ev.category || '').toLowerCase().trim();
+  if (!cat || cat === 'uncategorized') return localCategoryFallback(ev);
+  return CATS.includes(cat) ? cat : 'other';
+}
+
+// ─── Brain state ────────────────────────────────────────────────────────────
+function learningRatio(events) {
+  const total = events.reduce((s, ev) => s + ev.dur, 0);
+  if (total === 0) return 0;
+  const learn = events
+    .filter(ev => ev.cat === 'learning' || ev.cat === 'productivity' || ev.cat === 'news')
+    .reduce((s, ev) => s + ev.dur, 0);
+  return learn / total;
+}
+
+function brainState(ratio) {
+  if (ratio >= 0.55) return 'thriving';
+  if (ratio >= 0.35) return 'healthy';
+  if (ratio >= 0.15) return 'sluggish';
+  return 'rotting';
+}
+
+// ─── Supabase auth ─────────────────────────────────────────────────────────
+let _token = null;
+
+async function getToken() {
+  if (_token) return _token;
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY },
+    body: JSON.stringify({}),
+  });
+  const data = await res.json();
+  _token = data.access_token;
+  return _token;
+}
+
+// ─── Data fetching & normalization ─────────────────────────────────────────
+async function loadEvents() {
+  const token = await getToken();
+  const since = new Date(Date.now() - 30 * 86400000).toISOString();
+  const url = `${SUPABASE_URL}/rest/v1/events?select=url,title,domain,category,duration,created_at&created_at=gte.${since}&order=created_at.asc`;
+  const res = await fetch(url, {
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`Supabase ${res.status}`);
+  const raw = await res.json();
+
+  return raw.map(ev => {
+    const d = new Date(ev.created_at);
+    return {
+      url:    ev.url || '',
+      title:  ev.title || '',
+      domain: ev.domain || '',
+      cat:    resolveCategory(ev),
+      dur:    ev.duration || 0,
+      dk:     dateKey(d),
+      hour:   d.getHours(),
+    };
+  });
+}
+
+// Filter helpers
+const today = dateKey(new Date());
+
+function byDate(events, dk)     { return events.filter(ev => ev.dk === dk); }
+function last7(events)          { const c = lastNDays(7)[0]; return events.filter(ev => ev.dk >= c); }
+function groupByDay(events)     {
+  const m = {};
+  for (const ev of events) {
+    if (!m[ev.dk]) m[ev.dk] = {};
+    m[ev.dk][ev.cat] = (m[ev.dk][ev.cat] || 0) + ev.dur;
+  }
+  return m;
+}
+
+// ─── 1. GAUGE ────────────────────────────────────────────────────────────────
+function renderGauge(events7d) {
+  const ratio = learningRatio(events7d);
+  const state = brainState(ratio);
+  const pct   = Math.round(ratio * 100);
+  const color = STATE_COLOR[state];
+
+  const R     = 80;
+  const total = Math.PI * R;       // arc length of upper semi-circle
+  const filled = ratio * total;
+
+  // Needle tip (radius slightly inside arc)
+  const angle = (1 - ratio) * Math.PI;
+  const nx = 100 + 68 * Math.cos(angle);
+  const ny = 100 - 68 * Math.sin(angle);
+
+  document.getElementById('gauge-card').innerHTML = `
+    <h2>Brain Health Score — 7 Days</h2>
+    <div class="gauge-center">
+      <svg viewBox="0 0 200 108" width="200" height="108" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="arcGrad" gradientUnits="userSpaceOnUse" x1="20" y1="0" x2="180" y2="0">
+            <stop offset="0%"   stop-color="#555555"/>
+            <stop offset="30%"  stop-color="#aa8866"/>
+            <stop offset="65%"  stop-color="#88aaff"/>
+            <stop offset="100%" stop-color="#00ffcc"/>
+          </linearGradient>
+        </defs>
+        <!-- Track -->
+        <path d="M 20 100 A 80 80 0 0 1 180 100"
+          fill="none" stroke="#1a1a2c" stroke-width="16" stroke-linecap="round"/>
+        <!-- Filled arc — start=left(0%) end=right(100%) -->
+        <path d="M 20 100 A 80 80 0 0 1 180 100"
+          fill="none"
+          stroke="${color}"
+          stroke-width="16"
+          stroke-linecap="round"
+          stroke-dasharray="${filled.toFixed(1)} ${(total * 2).toFixed(1)}"
+          stroke-dashoffset="0"/>
+        <!-- Needle -->
+        <line x1="100" y1="100" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}"
+          stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="100" cy="100" r="5" fill="white"/>
+        <!-- Score text inside semi-circle -->
+        <text x="100" y="88" text-anchor="middle" font-family="Inter,sans-serif"
+          font-size="22" font-weight="900" fill="${color}" letter-spacing="-1">${pct}</text>
+      </svg>
+      <div class="gauge-state" style="color:${color}">${STATE_LABEL[state]}</div>
+      <div class="gauge-sub">${pct}% learning content this week</div>
+    </div>
+  `;
+}
+
+// ─── 2. NUTRITION LABEL ─────────────────────────────────────────────────────
+function renderNutritionLabel(todayEvents) {
+  const totals = {};
+  CATS.forEach(c => totals[c] = 0);
+  for (const ev of todayEvents) totals[ev.cat] += ev.dur;
+  const total = Object.values(totals).reduce((s, v) => s + v, 0);
+
+  const rows = CATS
+    .filter(c => totals[c] > 0)
+    .map(c => {
+      const pct = total > 0 ? Math.round(totals[c] / total * 100) : 0;
+      return `
+        <div class="nl-row">
+          <div class="nl-cat-name">
+            <div class="nl-dot" style="background:${CAT_COLOR[c]}"></div>
+            ${CAT_LABEL[c]}
+          </div>
+          <span class="nl-time">${fmtTime(totals[c])}</span>
+          <span class="nl-pct">${pct}%</span>
+        </div>`;
+    }).join('');
+
+  const body = total === 0
+    ? `<div class="no-data"><div class="no-data-icon">🌙</div>No browsing recorded today yet</div>`
+    : rows;
+
+  document.getElementById('nutrition-card').innerHTML = `
+    <h2>Today's Nutrition Label</h2>
+    <div class="nl-wrap">
+      <div class="nl-title">Nutrition Facts</div>
+      <div class="nl-serving">
+        <span>Serving Size</span><span>Today</span>
+      </div>
+      <div class="nl-total-row">
+        <span class="nl-total-label">Total Screen Time</span>
+        <span class="nl-total-value">${fmtTime(total)}</span>
+      </div>
+      <div class="nl-dv-header">% of Today</div>
+      ${body}
+      <div class="nl-footnote">
+        Percentages reflect share of today's total screen time recorded by the extension.
+        Learning includes Productivity &amp; News.
+      </div>
+    </div>`;
+}
+
+// ─── 3. DONUT ───────────────────────────────────────────────────────────────
+let _donutChart = null;
+
+function renderDonut(todayEvents) {
+  const totals = {};
+  CATS.forEach(c => totals[c] = 0);
+  for (const ev of todayEvents) totals[ev.cat] += ev.dur;
+
+  const activeCats = CATS.filter(c => totals[c] > 0);
+  const total = todayEvents.reduce((s, ev) => s + ev.dur, 0);
+
+  const card = document.getElementById('donut-card');
+
+  if (activeCats.length === 0) {
+    card.innerHTML = `<h2>Today's Diet Breakdown</h2>
+      <div class="no-data"><div class="no-data-icon">📊</div>No data for today yet</div>`;
+    return;
+  }
+
+  card.innerHTML = `<h2>Today's Diet Breakdown</h2><div class="chart-donut"><canvas id="donut-c"></canvas></div>`;
+
+  if (_donutChart) { _donutChart.destroy(); _donutChart = null; }
+
+  _donutChart = new Chart(document.getElementById('donut-c').getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: activeCats.map(c => CAT_LABEL[c]),
+      datasets: [{
+        data:            activeCats.map(c => totals[c]),
+        backgroundColor: activeCats.map(c => CAT_COLOR[c]),
+        borderColor:     '#0e0e1a',
+        borderWidth:     3,
+        hoverOffset:     8,
+      }],
+    },
+    plugins: [{
+      id: 'center',
+      beforeDraw(chart) {
+        const { ctx, chartArea: { left, right, top, bottom } } = chart;
+        const cx = (left + right) / 2, cy = (top + bottom) / 2;
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#e6e6f0';
+        ctx.font = '700 17px Inter, sans-serif';
+        ctx.fillText(fmtTime(total), cx, cy - 9);
+        ctx.fillStyle = '#5a5a78';
+        ctx.font = '500 10px Inter, sans-serif';
+        ctx.fillText('today', cx, cy + 10);
+        ctx.restore();
+      },
+    }],
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '68%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1a2c',
+          borderColor: '#2a2a40',
+          borderWidth: 1,
+          bodyColor: '#e6e6f0',
+          titleColor: '#e6e6f0',
+          padding: 10,
+          callbacks: {
+            label: item => ` ${fmtTime(item.raw)}  (${total > 0 ? Math.round(item.raw / total * 100) : 0}%)`,
+          },
+        },
+      },
+    },
+  });
+}
+
+// ─── 4. WEEKLY STACKED BAR ──────────────────────────────────────────────────
+let _weekChart = null;
+
+function renderWeeklyBar(events7d) {
+  const dayMap = groupByDay(events7d);
+  const days   = lastNDays(7);
+  const labels = days.map(dk => {
+    const d = new Date(dk + 'T12:00:00');
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  });
+
+  const datasets = CATS.map(cat => ({
+    label:           CAT_LABEL[cat],
+    data:            days.map(dk => parseFloat(((dayMap[dk]?.[cat] || 0) / 3600).toFixed(2))),
+    backgroundColor: CAT_COLOR[cat],
+    borderRadius:    3,
+  }));
+
+  document.getElementById('weekly-card').innerHTML = `
+    <h2>Last 7 Days — Time by Category</h2>
+    <div class="chart-bar"><canvas id="weekly-c"></canvas></div>`;
+
+  if (_weekChart) { _weekChart.destroy(); _weekChart = null; }
+
+  _weekChart = new Chart(document.getElementById('weekly-c').getContext('2d'), {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { stacked: true, grid: { color: '#1a1a2c' }, ticks: { color: '#5a5a78', font: { size: 11 } } },
+        y: { stacked: true, grid: { color: '#1a1a2c' }, ticks: { color: '#5a5a78', font: { size: 11 }, callback: v => `${v}h` } },
+      },
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: '#5a5a78', boxWidth: 10, boxHeight: 10, padding: 12, font: { size: 11 }, usePointStyle: true, pointStyle: 'circle' },
+        },
+        tooltip: {
+          mode: 'index',
+          backgroundColor: '#1a1a2c',
+          borderColor: '#2a2a40',
+          borderWidth: 1,
+          titleColor: '#e6e6f0',
+          bodyColor: '#9090a8',
+          padding: 10,
+          callbacks: { label: item => ` ${item.dataset.label}: ${item.raw}h` },
+        },
+      },
+    },
+  });
+}
+
+// ─── 5. 30-DAY TREND LINE ───────────────────────────────────────────────────
+let _trendChart = null;
+
+function renderTrendLine(allEvents) {
+  const dayMap = groupByDay(allEvents);
+  const days   = lastNDays(30);
+  const labels = days.map(dk => {
+    const d = new Date(dk + 'T12:00:00');
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  });
+
+  const data = days.map(dk => {
+    const cats = dayMap[dk] || {};
+    const total = Object.values(cats).reduce((s, v) => s + v, 0);
+    if (total === 0) return null;
+    const learn = (cats.learning || 0) + (cats.productivity || 0) + (cats.news || 0);
+    return Math.round(learn / total * 100);
+  });
+
+  document.getElementById('trend-card').innerHTML = `
+    <h2>30-Day Learning Trend</h2>
+    <div class="chart-line"><canvas id="trend-c"></canvas></div>`;
+
+  if (_trendChart) { _trendChart.destroy(); _trendChart = null; }
+
+  const ctx = document.getElementById('trend-c').getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 0, 210);
+  grad.addColorStop(0,   '#1D9E7540');
+  grad.addColorStop(1,   '#1D9E7500');
+
+  _trendChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Learning %',
+          data,
+          borderColor:          '#1D9E75',
+          backgroundColor:      grad,
+          borderWidth:          2.5,
+          pointRadius:          3,
+          pointBackgroundColor: '#1D9E75',
+          pointBorderColor:     '#0e0e1a',
+          pointBorderWidth:     2,
+          fill:                 true,
+          tension:              0.4,
+          spanGaps:             true,
+        },
+        {
+          label: 'Goal',
+          data: days.map(() => 50),
+          borderColor:  '#2a2a48',
+          borderWidth:  1.5,
+          borderDash:   [5, 5],
+          pointRadius:  0,
+          fill:         false,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          grid: { color: '#1a1a2c' },
+          ticks: { color: '#5a5a78', font: { size: 10 }, maxTicksLimit: 10, maxRotation: 0 },
+        },
+        y: {
+          min: 0,
+          max: 100,
+          grid: { color: '#1a1a2c' },
+          ticks: { color: '#5a5a78', font: { size: 11 }, callback: v => `${v}%` },
+        },
+      },
+      plugins: {
+        legend: {
+          labels: {
+            color: '#5a5a78',
+            boxWidth: 10,
+            boxHeight: 10,
+            font: { size: 11 },
+            filter: item => item.text === 'Learning %',
+          },
+        },
+        tooltip: {
+          backgroundColor: '#1a1a2c',
+          borderColor: '#2a2a40',
+          borderWidth: 1,
+          titleColor: '#e6e6f0',
+          bodyColor: '#9090a8',
+          padding: 10,
+          callbacks: {
+            label: item => item.datasetIndex === 0 ? ` Learning: ${item.raw ?? '—'}%` : ` Goal: 50%`,
+          },
+        },
+      },
+    },
+  });
+}
+
+// ─── 6. HEATMAP ─────────────────────────────────────────────────────────────
+function renderHeatmap(events7d) {
+  const HOUR_LABELS = ['12a','1','2','3','4','5','6','7','8','9','10','11',
+                       '12p','1','2','3','4','5','6','7','8','9','10','11'];
+  const days = lastNDays(7);
+
+  // Build grid[dk][hour] = { cat: secs }
+  const grid = {};
+  for (const ev of events7d) {
+    if (!grid[ev.dk]) grid[ev.dk] = {};
+    if (!grid[ev.dk][ev.hour]) grid[ev.dk][ev.hour] = {};
+    grid[ev.dk][ev.hour][ev.cat] = (grid[ev.dk][ev.hour][ev.cat] || 0) + ev.dur;
+  }
+
+  // Find max cell value for opacity scaling
+  let maxCellSecs = 1;
+  for (const dk of days) for (let h = 0; h < 24; h++) {
+    const s = Object.values(grid[dk]?.[h] || {}).reduce((a, b) => a + b, 0);
+    if (s > maxCellSecs) maxCellSecs = s;
+  }
+
+  let html = '';
+
+  // Header row
+  html += '<div class="hm-corner"></div>';
+  for (let h = 0; h < 24; h++) {
+    html += `<div class="hm-hour-label">${h % 3 === 0 ? HOUR_LABELS[h] : ''}</div>`;
+  }
+
+  // Day rows
+  for (const dk of days) {
+    const d     = new Date(dk + 'T12:00:00');
+    const wday  = d.toLocaleDateString('en-US', { weekday: 'short' });
+    const mday  = d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
+    html += `<div class="hm-day-label" title="${dk}">${wday}<br><span style="color:var(--text-dim)">${mday}</span></div>`;
+
+    for (let h = 0; h < 24; h++) {
+      const cell      = grid[dk]?.[h] || {};
+      const cellTotal = Object.values(cell).reduce((a, b) => a + b, 0);
+
+      if (cellTotal === 0) {
+        html += `<div class="hm-cell"></div>`;
+      } else {
+        const domCat  = Object.entries(cell).sort((a, b) => b[1] - a[1])[0][0];
+        const opacity = Math.max(0.18, Math.min(1, cellTotal / (maxCellSecs * 0.5)));
+        const tip     = `${wday} ${HOUR_LABELS[h]} — ${fmtTime(cellTotal)} (${CAT_LABEL[domCat]})`;
+        html += `<div class="hm-cell" style="background:${CAT_COLOR[domCat]};opacity:${opacity.toFixed(2)}" title="${tip}"></div>`;
+      }
+    }
+  }
+
+  const legend = CATS.map(c => `
+    <div class="heatmap-legend-item">
+      <div class="heatmap-legend-dot" style="background:${CAT_COLOR[c]}"></div>
+      ${CAT_LABEL[c]}
+    </div>`).join('');
+
+  document.getElementById('heatmap-card').innerHTML = `
+    <h2>Time-of-Day Heatmap — Last 7 Days</h2>
+    <div class="heatmap-grid" style="grid-template-rows:16px repeat(${days.length},22px)">${html}</div>
+    <div class="heatmap-legend">${legend}</div>`;
+}
+
+// ─── 7. TOP SITES ───────────────────────────────────────────────────────────
+function renderTopSites(events7d) {
+  // Aggregate by domain
+  const map = {};
+  for (const ev of events7d) {
+    const dom = ev.domain || (() => { try { return new URL(ev.url).hostname.replace(/^www\./,''); } catch { return null; } })();
+    if (!dom) continue;
+    if (!map[dom]) map[dom] = { secs: 0, catSecs: {} };
+    map[dom].secs += ev.dur;
+    map[dom].catSecs[ev.cat] = (map[dom].catSecs[ev.cat] || 0) + ev.dur;
+  }
+
+  const sorted = Object.entries(map)
+    .sort((a, b) => b[1].secs - a[1].secs)
+    .slice(0, 10);
+
+  const card = document.getElementById('sites-card');
+
+  if (sorted.length === 0) {
+    card.innerHTML = `<h2>Top Sites This Week</h2><div class="no-data"><div class="no-data-icon">🌐</div>No data yet</div>`;
+    return;
+  }
+
+  const maxSecs = sorted[0][1].secs;
+
+  const rows = sorted.map(([dom, { secs, catSecs }]) => {
+    const topCat   = Object.entries(catSecs).sort((a, b) => b[1] - a[1])[0][0];
+    const color    = CAT_COLOR[topCat];
+    const barWidth = Math.round(secs / maxSecs * 100);
+    return `
+      <tr>
+        <td><span class="site-domain">${dom}</span></td>
+        <td><span class="cat-badge" style="background:${color}22;color:${color}">${CAT_LABEL[topCat]}</span></td>
+        <td class="site-time">${fmtTime(secs)}</td>
+        <td class="bar-cell">
+          <div class="site-bar-track">
+            <div class="site-bar-fill" style="width:${barWidth}%;background:${color}"></div>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+
+  card.innerHTML = `
+    <h2>Top Sites This Week</h2>
+    <table class="sites-table">
+      <thead>
+        <tr>
+          <th>Domain</th>
+          <th>Category</th>
+          <th style="text-align:right;padding-right:12px">Time</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ─── 8. LEARNING STREAK ─────────────────────────────────────────────────────
+function renderStreak(allEvents) {
+  const dayMap = groupByDay(allEvents);
+  const days   = lastNDays(30);
+
+  const scored = days.map(dk => {
+    const cats  = dayMap[dk] || {};
+    const total = Object.values(cats).reduce((s, v) => s + v, 0);
+    if (total === 0) return { dk, on: false, noData: true };
+    const learn = (cats.learning || 0) + (cats.productivity || 0) + (cats.news || 0);
+    return { dk, on: learn / total >= 0.35, noData: false };
+  });
+
+  // Current streak (from today backwards)
+  let current = 0;
+  for (let i = scored.length - 1; i >= 0; i--) {
+    if (scored[i].noData && scored[i].dk === today) continue; // today not counted yet
+    if (scored[i].on) current++;
+    else break;
+  }
+
+  // Longest streak
+  let longest = 0, run = 0;
+  for (const { on } of scored) {
+    run = on ? run + 1 : 0;
+    if (run > longest) longest = run;
+  }
+
+  const dots = scored.map(({ dk, on, noData }) => {
+    const d     = new Date(dk + 'T12:00:00');
+    const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const cls   = noData ? 'off' : on ? 'on' : 'off';
+    const tip   = `${label}: ${noData ? 'No data' : on ? '≥35% learning ✓' : '<35% learning'}`;
+    return `<div class="streak-dot ${cls}" title="${tip}"></div>`;
+  }).join('');
+
+  document.getElementById('streak-card').innerHTML = `
+    <h2>Learning Streak — Last 30 Days</h2>
+    <div class="streak-stats">
+      <div>
+        <div class="streak-stat-val" style="color:var(--learning)">${current}</div>
+        <div class="streak-stat-label">Current Streak</div>
+      </div>
+      <div>
+        <div class="streak-stat-val" style="color:var(--productivity)">${longest}</div>
+        <div class="streak-stat-label">Best Streak</div>
+      </div>
+    </div>
+    <div class="streak-dots">${dots}</div>
+    <div class="streak-legend">
+      <div class="streak-legend-item">
+        <div style="width:13px;height:13px;border-radius:3px;background:var(--learning)"></div>
+        ≥35% learning
+      </div>
+      <div class="streak-legend-item">
+        <div style="width:13px;height:13px;border-radius:3px;background:var(--card-border)"></div>
+        Not reached / no data
+      </div>
+    </div>`;
+}
+
+// ─── MAIN ─────────────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    const events     = await loadEvents();
+    const todayEvs   = byDate(events, today);
+    const events7d   = last7(events);
+
+    renderGauge(events7d);
+    renderNutritionLabel(todayEvs);
+    renderDonut(todayEvs);
+    renderWeeklyBar(events7d);
+    renderTrendLine(events);
+    renderHeatmap(events7d);
+    renderTopSites(events7d);
+    renderStreak(events);
+
+    document.getElementById('last-updated').textContent =
+      `Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+
+    document.getElementById('loading').style.display  = 'none';
+    document.getElementById('content').style.display  = 'block';
+
+  } catch (err) {
+    document.getElementById('loading').innerHTML = `
+      <div style="text-align:center">
+        <div style="font-size:28px;margin-bottom:10px">⚠️</div>
+        <div style="color:#D85A30;font-size:14px">Failed to load data</div>
+        <div style="color:var(--text-muted);font-size:12px;margin-top:6px">${err.message}</div>
+        <div style="color:var(--text-dim);font-size:11px;margin-top:4px">
+          Make sure the extension is running and try refreshing.
+        </div>
+      </div>`;
+  }
+}
+
+init();
+</script>
+</body>
+</html>
