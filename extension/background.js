@@ -1,7 +1,8 @@
+importScripts("config.js"); // loads GEMINI_API_KEY from gitignored config.js
+
 const SUPABASE_URL = "https://sagbrkjfdqxqndrfekkp.supabase.co";
 const SUPABASE_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhZ2Jya2pmZHF4cW5kcmZla2twIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MTkzNjgsImV4cCI6MjA5MDI5NTM2OH0.R3X09rKRcUES59xnLP_dsQacq6b5gg2QiTIfbTOeTxI";
-const GEMINI_API_KEY = "AIzaSyDDwBUSXAGthSu6oJrpDRNXej048Aoz8xo";
 
 const VALID_CATEGORIES = [
   "learning",
@@ -84,7 +85,7 @@ Reply with only the category word, nothing else.`,
     return match ?? "other";
   } catch (err) {
     console.warn("Gemini classification failed:", err);
-    return "uncategorized";
+    return "other";
   }
 }
 

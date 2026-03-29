@@ -1,5 +1,6 @@
 # Environment variables - never commit this
 .env
+extension/config.js
 .env.local
 .env.*.local
 
