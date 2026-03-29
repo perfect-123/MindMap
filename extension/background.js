@@ -154,7 +154,12 @@ async function createEvent(tab) {
     }),
   });
 
-  const [created] = await res.json();
+  const data = await res.json();
+  if (!res.ok) {
+    console.error("Supabase insert failed:", data);
+    return null;
+  }
+  const [created] = data;
   console.log("Event created:", created);
 
   // Classify in the background — don't await so tab tracking isn't delayed
