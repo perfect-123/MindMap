@@ -1,0 +1,25 @@
+
+#Environment variables - never commit this
+.env
+.env.local
+.env.*.local
+
+#Dependencies
+node_modules/
+
+#Build outputs
+dist/
+build/
+out/
+
+#OS files
+.DS_Store
+Thumbs.db
+
+#Editor files
+.vscode/
+.idea/
+*.suo
+.ntvs
+*.njsproj
+*.sln
