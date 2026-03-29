@@ -1,25 +1,24 @@
-
-#Environment variables - never commit this
+# Environment variables - never commit this
 .env
 .env.local
 .env.*.local
 
-#Dependencies
+# Dependencies
 node_modules/
 
-#Build outputs
+# Build outputs
 dist/
 build/
 out/
 
-#OS files
+# OS files
 .DS_Store
 Thumbs.db
 
-#Editor files
+# Editor files
 .vscode/
 .idea/
 *.suo
-.ntvs
+*.ntvs*
 *.njsproj
 *.sln
