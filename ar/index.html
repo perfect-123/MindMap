@@ -261,53 +261,20 @@
       },
     };
 
-    // ─── Category colour map ──────────────────────────────────────────────────────
-    // Each entry: { keywords[], hex colour string }
+    // ─── Category definitions — mirrors extension's VALID_CATEGORIES ─────────────
     const CATEGORY_DEFS = [
-      {
-        name: 'Coding',
-        keywords: ['coding', 'tutorial', 'education', 'programming', 'math', 'science',
-                   'engineering', 'learn', 'course', 'lecture', 'how to', 'explainer',
-                   'documentary', 'history', 'language'],
-        hex: '#1D9E75',
-      },
-      {
-        name: 'Sport',
-        keywords: ['sport', 'fitness', 'workout', 'gym', 'football', 'basketball',
-                   'soccer', 'tennis', 'running', 'training'],
-        hex: '#378ADD',
-      },
-      {
-        name: 'Entertainment',
-        keywords: ['entertainment', 'movie', 'film', 'tv', 'netflix', 'youtube',
-                   'comedy', 'series', 'show', 'trailer', 'gaming', 'game'],
-        hex: '#D85A30',
-      },
-      {
-        name: 'News',
-        keywords: ['news', 'politics', 'election', 'government', 'policy', 'world',
-                   'breaking', 'reporter', 'journalist'],
-        hex: '#7F77DD',
-      },
-      {
-        name: 'Music',
-        keywords: ['music', 'song', 'album', 'artist', 'playlist', 'concert',
-                   'band', 'rap', 'pop', 'rock', 'jazz'],
-        hex: '#EF9F27',
-      },
-    ];
-    const OTHER_HEX = '#888780';
-
-    // ─── Learning classifier (preserved from original) ────────────────────────────
-    const LEARNING_KEYWORDS = [
-      'coding', 'tutorial', 'education', 'science', 'documentary',
-      'language', 'math', 'programming', 'lecture', 'course', 'learn',
-      'history', 'engineering', 'how to', 'explainer',
+      { name: 'Learning',      key: 'learning',      hex: '#1D9E75' },
+      { name: 'Entertainment', key: 'entertainment',  hex: '#D85A30' },
+      { name: 'Social Media',  key: 'social media',  hex: '#E040FB' },
+      { name: 'Productivity',  key: 'productivity',  hex: '#378ADD' },
+      { name: 'News',          key: 'news',          hex: '#EF9F27' },
+      { name: 'Other',         key: 'other',         hex: '#888780' },
     ];
 
+    // Uses Gemini-classified category field. Learning + Productivity count as learning.
     function classifyEvent(ev) {
-      const text = `${ev.title || ''} ${ev.domain || ''}`.toLowerCase();
-      return LEARNING_KEYWORDS.some(kw => text.includes(kw)) ? 'learning' : 'entertainment';
+      const cat = (ev.category || '').toLowerCase().trim();
+      return (cat === 'learning' || cat === 'productivity' || cat === 'news') ? 'learning' : 'entertainment';
     }
 
     function calcBrainState(events) {
@@ -326,86 +293,37 @@
       return 'rotting';
     }
 
-    // Map a single event text to one of the named category buckets.
-    // Returns the index into CATEGORY_DEFS, or -1 for "Other".
-    function classifyToCategory(ev) {
-      const text = `${ev.title || ''} ${ev.domain || ''}`.toLowerCase();
-      for (let i = 0; i < CATEGORY_DEFS.length; i++) {
-        if (CATEGORY_DEFS[i].keywords.some(kw => text.includes(kw))) return i;
-      }
-      return -1; // Other
-    }
-
-    // Returns an array of { name, percentage, hex } objects.
-    // Only includes entries with >5% share; remainder merged into "Other".
-    // Capped at 6 entries total.
+    // Returns an array of { name, percentage, hex } objects, sorted descending.
+    // Filters out zero-time categories. Falls back to demo data if no events.
     function calcCategoryBreakdown(events) {
       if (!events || events.length === 0) {
-        // Demo data when there are no real events
         return [
-          { name: 'Coding',        percentage: 38, hex: '#1D9E75' },
+          { name: 'Learning',      percentage: 38, hex: '#1D9E75' },
           { name: 'Entertainment', percentage: 28, hex: '#D85A30' },
-          { name: 'Music',         percentage: 18, hex: '#EF9F27' },
-          { name: 'Sport',         percentage: 10, hex: '#378ADD' },
-          { name: 'Other',         percentage:  6, hex: OTHER_HEX },
+          { name: 'Social Media',  percentage: 18, hex: '#E040FB' },
+          { name: 'Productivity',  percentage: 10, hex: '#378ADD' },
+          { name: 'Other',         percentage:  6, hex: '#888780' },
         ];
       }
 
-      // Accumulate duration per bucket
-      const buckets = new Array(CATEGORY_DEFS.length).fill(0);
-      let otherSecs = 0;
+      const buckets = {};
+      CATEGORY_DEFS.forEach(d => buckets[d.key] = 0);
       let totalSecs = 0;
 
       for (const ev of events) {
         const secs = ev.duration || 0;
         totalSecs += secs;
-        const idx = classifyToCategory(ev);
-        if (idx >= 0) buckets[idx] += secs;
-        else otherSecs += secs;
+        const cat = (ev.category || 'other').toLowerCase().trim();
+        if (buckets[cat] !== undefined) buckets[cat] += secs;
+        else buckets['other'] += secs;
       }
 
-      if (totalSecs === 0) return calcCategoryBreakdown([]); // fallback to demo
+      if (totalSecs === 0) return calcCategoryBreakdown([]);
 
-      // Build raw entries
-      const entries = CATEGORY_DEFS.map((def, i) => ({
-        name: def.name,
-        secs: buckets[i],
-        hex: def.hex,
-      }));
-      entries.push({ name: 'Other', secs: otherSecs, hex: OTHER_HEX });
-
-      // Filter < 5%, sort descending
-      const threshold = totalSecs * 0.05;
-      const kept = entries.filter(e => e.secs >= threshold);
-      const merged = entries.filter(e => e.secs < threshold);
-
-      // Merge small slices into Other
-      const mergedSecs = merged.reduce((acc, e) => acc + e.secs, 0);
-      const otherEntry = kept.find(e => e.name === 'Other');
-      if (mergedSecs > 0) {
-        if (otherEntry) {
-          otherEntry.secs += mergedSecs;
-        } else {
-          kept.push({ name: 'Other', secs: mergedSecs, hex: OTHER_HEX });
-        }
-      }
-
-      kept.sort((a, b) => b.secs - a.secs);
-
-      // Cap at 6 — collapse tail into Other again
-      let visible = kept.slice(0, 6);
-      if (kept.length > 6) {
-        const tail = kept.slice(6).reduce((acc, e) => acc + e.secs, 0);
-        const ov = visible.find(e => e.name === 'Other');
-        if (ov) ov.secs += tail;
-        else visible.push({ name: 'Other', secs: tail, hex: OTHER_HEX });
-      }
-
-      return visible.map(e => ({
-        name: e.name,
-        percentage: Math.round((e.secs / totalSecs) * 100),
-        hex: e.hex,
-      }));
+      return CATEGORY_DEFS
+        .map(d => ({ name: d.name, percentage: Math.round((buckets[d.key] / totalSecs) * 100), hex: d.hex }))
+        .filter(e => e.percentage > 0)
+        .sort((a, b) => b.percentage - a.percentage);
     }
 
     // ─── Supabase helpers ──────────────────────────────────────────────────────────
@@ -424,7 +342,7 @@
       try {
         const token = await getAnonSession();
         const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-        const url = `${SUPABASE_URL}/rest/v1/events?select=title,domain,duration&created_at=gte.${sevenDaysAgo}`;
+        const url = `${SUPABASE_URL}/rest/v1/events?select=title,domain,duration,category&created_at=gte.${sevenDaysAgo}`;
         const res = await fetch(url, {
           headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
         });
