@@ -1,4 +1,4 @@
-importScripts("config.js"); // loads GEMINI_API_KEY from gitignored config.js
+importScripts("config.js"); // defines GEMINI_API_KEY
 
 const SUPABASE_URL = "https://sagbrkjfdqxqndrfekkp.supabase.co";
 const SUPABASE_KEY =
@@ -37,6 +37,31 @@ async function getOrCreateSession() {
   return data;
 }
 
+// ─── Local keyword fallback (used when Gemini API is unavailable) ────────────
+function classifyLocally(url, title) {
+  let domain = "";
+  try { domain = new URL(url).hostname.replace(/^www\./, ""); } catch (_) {}
+  const text = (domain + " " + title).toLowerCase();
+
+  const SOCIAL = /\b(twitter\.com|x\.com|instagram\.com|facebook\.com|tiktok\.com|linkedin\.com|reddit\.com|snapchat\.com|pinterest\.com|threads\.net)\b/;
+  const NEWS   = /\b(bbc\.(co\.uk|com)|cnn\.com|nytimes\.com|reuters\.com|theguardian\.com|washingtonpost\.com|bloomberg\.com|apnews\.com|aljazeera\.com|techcrunch\.com|theverge\.com|wired\.com)\b/;
+  const LEARN  = /\b(wikipedia\.org|stackoverflow\.com|github\.com|docs\.|coursera\.org|udemy\.com|khanacademy\.org|edx\.org|medium\.com|dev\.to|freecodecamp\.org|w3schools\.com|mdn\b|developer\.|learn\.|education)\b/;
+  const PROD   = /\b(gmail\.com|notion\.so|slack\.com|jira\.|linear\.app|figma\.com|docs\.google\.com|sheets\.google\.com|trello\.com|asana\.com|calendar\.google\.com|outlook\.(com|office\.com))\b/;
+  const ENTERTAIN = /\b(netflix\.com|twitch\.tv|spotify\.com|soundcloud\.com|9gag\.com|imgur\.com|primevideo\.com|disneyplus\.com|hulu\.com)\b/;
+
+  if (SOCIAL.test(domain))    return "social media";
+  if (NEWS.test(domain))      return "news";
+  if (ENTERTAIN.test(domain)) return "entertainment";
+  if (PROD.test(domain))      return "productivity";
+  if (LEARN.test(domain))     return "learning";
+
+  if (/tutorial|course|lecture|documentation|how[ -]to|explained?|guide|learn\b/.test(text)) return "learning";
+  if (/breaking news|headlines|politics|report\b/.test(text)) return "news";
+  if (/\bgame\b|gaming|meme|funny|comedy/.test(text)) return "entertainment";
+
+  return "other";
+}
+
 // ─── Gemini categorization ───────────────────────────────────────────────────
 async function classifyWithGemini(url, title) {
   try {
@@ -71,21 +96,23 @@ Reply with only the category word, nothing else.`,
           ],
           generationConfig: {
             temperature: 0,
-            maxOutputTokens: 50,
+            maxOutputTokens: 1024,
           },
         }),
       },
     );
 
     const data = await res.json();
-    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text
-      ?.trim()
-      .toLowerCase() ?? "";
+    // gemini-2.5-flash is a thinking model: parts[0] is reasoning, the actual
+    // answer is in the part without thought:true. Fall back to last part.
+    const parts = data?.candidates?.[0]?.content?.parts ?? [];
+    const answerPart = parts.find((p) => !p.thought) ?? parts[parts.length - 1];
+    const raw = (answerPart?.text ?? "").trim().toLowerCase();
     const match = VALID_CATEGORIES.find((c) => raw.includes(c));
     return match ?? "other";
   } catch (err) {
-    console.warn("Gemini classification failed:", err);
-    return "other";
+    console.warn("Gemini classification failed, using local fallback:", err);
+    return classifyLocally(url, title);
   }
 }
 

@@ -271,9 +271,32 @@
       { name: 'Other',         key: 'other',         hex: '#888780' },
     ];
 
-    // Uses Gemini-classified category field. Learning + Productivity count as learning.
-    function classifyEvent(ev) {
+    // Local keyword fallback for events that weren't classified by Gemini.
+    function localCategoryFallback(ev) {
+      let domain = '';
+      try { domain = new URL(ev.url || '').hostname.replace(/^www\./, ''); } catch (_) {}
+      const text = (domain + ' ' + (ev.title || '')).toLowerCase();
+      if (/\b(twitter\.com|x\.com|instagram\.com|facebook\.com|tiktok\.com|linkedin\.com|reddit\.com|snapchat\.com|pinterest\.com|threads\.net)\b/.test(domain)) return 'social media';
+      if (/\b(bbc\.(co\.uk|com)|cnn\.com|nytimes\.com|reuters\.com|theguardian\.com|washingtonpost\.com|bloomberg\.com|apnews\.com|aljazeera\.com|techcrunch\.com|theverge\.com|wired\.com)\b/.test(domain)) return 'news';
+      if (/\b(netflix\.com|twitch\.tv|spotify\.com|soundcloud\.com|9gag\.com|imgur\.com|primevideo\.com|disneyplus\.com|hulu\.com)\b/.test(domain)) return 'entertainment';
+      if (/\b(gmail\.com|notion\.so|slack\.com|figma\.com|docs\.google\.com|trello\.com|asana\.com|calendar\.google\.com|outlook\.(com|office\.com))\b/.test(domain)) return 'productivity';
+      if (/\b(wikipedia\.org|stackoverflow\.com|github\.com|coursera\.org|udemy\.com|khanacademy\.org|edx\.org|medium\.com|dev\.to|freecodecamp\.org|w3schools\.com)\b/.test(domain)) return 'learning';
+      if (/tutorial|course|lecture|documentation|how[ -]to|explained?|guide|learn\b/.test(text)) return 'learning';
+      if (/breaking news|headlines|politics/.test(text)) return 'news';
+      if (/\bgame\b|gaming|meme|funny|comedy/.test(text)) return 'entertainment';
+      return 'other';
+    }
+
+    // Resolves the category for an event, using local fallback for "uncategorized".
+    function resolveCategory(ev) {
       const cat = (ev.category || '').toLowerCase().trim();
+      if (!cat || cat === 'uncategorized') return localCategoryFallback(ev);
+      return cat;
+    }
+
+    // Uses Gemini-classified category field. Learning + Productivity + News count as learning.
+    function classifyEvent(ev) {
+      const cat = resolveCategory(ev);
       return (cat === 'learning' || cat === 'productivity' || cat === 'news') ? 'learning' : 'entertainment';
     }
 
@@ -313,7 +336,7 @@
       for (const ev of events) {
         const secs = ev.duration || 0;
         totalSecs += secs;
-        const cat = (ev.category || 'other').toLowerCase().trim();
+        const cat = resolveCategory(ev);
         if (buckets[cat] !== undefined) buckets[cat] += secs;
         else buckets['other'] += secs;
       }
@@ -342,7 +365,7 @@
       try {
         const token = await getAnonSession();
         const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-        const url = `${SUPABASE_URL}/rest/v1/events?select=title,domain,duration,category&created_at=gte.${sevenDaysAgo}`;
+        const url = `${SUPABASE_URL}/rest/v1/events?select=url,title,domain,duration,category&created_at=gte.${sevenDaysAgo}`;
         const res = await fetch(url, {
           headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
         });
