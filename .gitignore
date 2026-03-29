@@ -3,7 +3,7 @@
 extension/config.js
 .env.local
 .env.*.local
-
+.extension/config.js
 # Dependencies
 node_modules/
 
