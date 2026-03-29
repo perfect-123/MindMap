@@ -143,6 +143,7 @@
       top: 2rem;
       left: 50%;
       transform: translateX(-50%);
+      transition: opacity 0.4s;
     }
 
     #exit-btn {
@@ -260,39 +261,72 @@
       },
     };
 
-    // ─── Learning classifier ──────────────────────────────────────────────────────
-    const LEARNING_KEYWORDS = [
-      'coding', 'tutorial', 'education', 'science', 'documentary',
-      'language', 'math', 'programming', 'lecture', 'course', 'learn',
-      'history', 'engineering', 'how to', 'explainer',
+    // ─── Category definitions — mirrors extension's VALID_CATEGORIES ─────────────
+    const CATEGORY_DEFS = [
+      { name: 'Learning',      key: 'learning',      hex: '#1D9E75' },
+      { name: 'Entertainment', key: 'entertainment',  hex: '#D85A30' },
+      { name: 'Social Media',  key: 'social media',  hex: '#E040FB' },
+      { name: 'Productivity',  key: 'productivity',  hex: '#378ADD' },
+      { name: 'News',          key: 'news',          hex: '#EF9F27' },
+      { name: 'Other',         key: 'other',         hex: '#888780' },
     ];
 
-    // Use Gemini category from Supabase, fall back to keyword matching if uncategorized
+    // Uses Gemini-classified category field. Learning + Productivity count as learning.
     function classifyEvent(ev) {
-      if (ev.category === 'learning') return 'learning';
-      if (ev.category && ev.category !== 'uncategorized') return 'entertainment';
-      // fallback: keyword match on title + domain
-      const text = `${ev.title || ''} ${ev.domain || ''}`.toLowerCase();
-      return LEARNING_KEYWORDS.some(kw => text.includes(kw)) ? 'learning' : 'entertainment';
+      const cat = (ev.category || '').toLowerCase().trim();
+      return (cat === 'learning' || cat === 'productivity' || cat === 'news') ? 'learning' : 'entertainment';
     }
 
     function calcBrainState(events) {
       if (!events || events.length === 0) return 'healthy';
       let learningSecs = 0, totalSecs = 0;
       for (const ev of events) {
-        const secs = ev.duration || 0; // extension stores seconds in "duration"
+        const secs = ev.duration || 0;
         totalSecs += secs;
         if (classifyEvent(ev) === 'learning') learningSecs += secs;
       }
       if (totalSecs === 0) return 'healthy';
       const ratio = learningSecs / totalSecs;
-      if (ratio >= 0.7) return 'thriving';
-      if (ratio >= 0.5) return 'healthy';
-      if (ratio >= 0.3) return 'sluggish';
+      if (ratio >= 0.55) return 'thriving';
+      if (ratio >= 0.35) return 'healthy';
+      if (ratio >= 0.15) return 'sluggish';
       return 'rotting';
     }
 
-    // Sign in anonymously (same as extension does) to get a session token that passes RLS
+    // Returns an array of { name, percentage, hex } objects, sorted descending.
+    // Filters out zero-time categories. Falls back to demo data if no events.
+    function calcCategoryBreakdown(events) {
+      if (!events || events.length === 0) {
+        return [
+          { name: 'Learning',      percentage: 38, hex: '#1D9E75' },
+          { name: 'Entertainment', percentage: 28, hex: '#D85A30' },
+          { name: 'Social Media',  percentage: 18, hex: '#E040FB' },
+          { name: 'Productivity',  percentage: 10, hex: '#378ADD' },
+          { name: 'Other',         percentage:  6, hex: '#888780' },
+        ];
+      }
+
+      const buckets = {};
+      CATEGORY_DEFS.forEach(d => buckets[d.key] = 0);
+      let totalSecs = 0;
+
+      for (const ev of events) {
+        const secs = ev.duration || 0;
+        totalSecs += secs;
+        const cat = (ev.category || 'other').toLowerCase().trim();
+        if (buckets[cat] !== undefined) buckets[cat] += secs;
+        else buckets['other'] += secs;
+      }
+
+      if (totalSecs === 0) return calcCategoryBreakdown([]);
+
+      return CATEGORY_DEFS
+        .map(d => ({ name: d.name, percentage: Math.round((buckets[d.key] / totalSecs) * 100), hex: d.hex }))
+        .filter(e => e.percentage > 0)
+        .sort((a, b) => b.percentage - a.percentage);
+    }
+
+    // ─── Supabase helpers ──────────────────────────────────────────────────────────
     async function getAnonSession() {
       const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
         method: 'POST',
@@ -303,6 +337,7 @@
       return data.access_token;
     }
 
+    // Returns { state, categories }
     async function fetchBrainState() {
       try {
         const token = await getAnonSession();
@@ -313,23 +348,29 @@
         });
         if (!res.ok) throw new Error(`Supabase ${res.status}`);
         const events = await res.json();
-        console.log(`Fetched ${events.length} events from Supabase`);
         document.getElementById('debug-msg').textContent = `Supabase: ${events.length} events fetched`;
-        return calcBrainState(events);
+        return {
+          state: calcBrainState(events),
+          categories: calcCategoryBreakdown(events),
+        };
       } catch (err) {
         document.getElementById('debug-msg').textContent = `Supabase error: ${err.message}`;
         console.warn('Supabase fetch failed, using fallback:', err);
-        return 'thriving';
+        return {
+          state: 'thriving',
+          categories: calcCategoryBreakdown([]),
+        };
       }
     }
 
     // ─── DOM refs ─────────────────────────────────────────────────────────────────
-    const startBtn   = document.getElementById('start-btn');
-    const landing    = document.getElementById('landing');
-    const arView     = document.getElementById('ar-view');
-    const arUI       = document.getElementById('ar-ui');
-    const errorMsg   = document.getElementById('error-msg');
-    const arHint     = document.getElementById('ar-hint');
+    const startBtn    = document.getElementById('start-btn');
+    const landing     = document.getElementById('landing');
+    const arView      = document.getElementById('ar-view');
+    const arUI        = document.getElementById('ar-ui');
+    const errorMsg    = document.getElementById('error-msg');
+    const arHint      = document.getElementById('ar-hint');
+    const arStateBadgeEl = document.getElementById('ar-state-badge');
     const cameraVideo = document.getElementById('camera-video');
 
     // ─── Badge ────────────────────────────────────────────────────────────────────
@@ -344,7 +385,8 @@
       });
     }
 
-    fetchBrainState().then(renderStateBadge);
+    // Kick off initial badge render (state only — categories used after AR starts)
+    fetchBrainState().then(({ state }) => renderStateBadge(state));
 
     // ─── Three.js setup ───────────────────────────────────────────────────────────
     let renderer, scene, camera, brainGroup, brainMaterial, pointLight, clock;
@@ -352,11 +394,12 @@
     let animFrameId = null;
     let currentState = 'thriving';
 
+    // Holds all GLTF mesh objects so the raycaster can test against them
+    let brainMeshes = [];
+
     const GLOW_RADIUS    = 0.42;
     const PARTICLE_RADIUS = 0.62;
 
-    // Build/rebuild glow sphere + particle cloud for a given state.
-    // Removes old fx from brainGroup first.
     function buildFxLayer(stateName) {
       if (glowMesh)      { brainGroup.remove(glowMesh);      glowMesh.geometry.dispose();      glowMesh.material.dispose();      glowMesh = null; }
       if (particleSystem){ brainGroup.remove(particleSystem); particleSystem.geometry.dispose(); particleSystem.material.dispose(); particleSystem = null; }
@@ -364,7 +407,6 @@
       const s = STATES[stateName];
       const col = new THREE.Color(s.color);
 
-      // Glow — BackSide sphere slightly larger than brain, additive blend
       glowMesh = new THREE.Mesh(
         new THREE.SphereGeometry(GLOW_RADIUS, 32, 32),
         new THREE.MeshBasicMaterial({
@@ -378,12 +420,10 @@
       );
       brainGroup.add(glowMesh);
 
-      // Particles — distributed on a sphere, will be rotated each frame
       const { count, size } = s.particles;
       const geo = new THREE.BufferGeometry();
       const pos = new Float32Array(count * 3);
       for (let i = 0; i < count; i++) {
-        // Uniform random distribution on sphere surface
         const phi   = Math.acos(2 * Math.random() - 1);
         const theta = Math.random() * Math.PI * 2;
         pos[i * 3]     = PARTICLE_RADIUS * Math.sin(phi) * Math.cos(theta);
@@ -402,6 +442,419 @@
       brainGroup.add(particleSystem);
     }
 
+    // ─── Label canvas texture ─────────────────────────────────────────────────────
+    // Draws a 256×128 pill badge for one category entry. Returns a THREE.Texture.
+    function makeLabelTexture(name, percentage, hex) {
+      const W = 256, H = 128, R = 20;
+      const canvas = document.createElement('canvas');
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext('2d');
+
+      // Rounded rect fill
+      ctx.beginPath();
+      ctx.moveTo(R, 0);
+      ctx.lineTo(W - R, 0);
+      ctx.quadraticCurveTo(W, 0, W, R);
+      ctx.lineTo(W, H - R);
+      ctx.quadraticCurveTo(W, H, W - R, H);
+      ctx.lineTo(R, H);
+      ctx.quadraticCurveTo(0, H, 0, H - R);
+      ctx.lineTo(0, R);
+      ctx.quadraticCurveTo(0, 0, R, 0);
+      ctx.closePath();
+
+      // Background — category colour at 90% opacity
+      ctx.fillStyle = hex + 'E6'; // E6 = ~90% in hex
+      ctx.fill();
+
+      // Border — 1px white at 40% opacity
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Category name
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '500 22px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText(name.toUpperCase(), W / 2, 14);
+
+      // Percentage — large
+      ctx.font = '700 48px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(`${percentage}%`, W / 2, H - 10);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.needsUpdate = true;
+      return tex;
+    }
+
+    // ─── Explode system ───────────────────────────────────────────────────────────
+    // Owns all fragment label meshes + spring state.
+    // Created once after initThree; destroyed on exit AR.
+
+    const LABEL_W = 0.52; // world units width of each label plane
+    const LABEL_H = 0.26; // world units height (matches 256:128 ratio × LABEL_W)
+    const SPRING_STIFFNESS = 180;
+    const SPRING_DAMPING   = 12;
+    const EXPLODE_DEBOUNCE_MS = 800;
+
+    function easeOutBack(t) {
+      const c1 = 1.70158, c3 = c1 + 1;
+      return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+    }
+
+    let explodeSystem      = null;
+    let categoryData       = [];
+    let brainModelRoot     = null;  // root node of loaded brain model (for scale animation)
+    let brainModelBaseScale = 1;    // original scale set at load time — restored on reassemble
+
+    // Create (or recreate) the explode system for the given categories array.
+    // Must be called after brainGroup exists.
+    function createExplodeSystem(categories) {
+      // Clean up old system if exists
+      destroyExplodeSystem();
+
+      const fragments = categories.map((cat, i) => {
+        // Evenly distribute fragments in an ellipse around the brain centre.
+        // rx < ry because portrait phones are much taller than wide — keeps
+        // all labels on-screen regardless of fragment count (3–6).
+        const n     = categories.length;
+        const angle = (i / n) * Math.PI * 2 + Math.PI / 2; // start at top, spread clockwise
+        const tx    = 0.27 * Math.cos(angle) + (Math.random() - 0.5) * 0.05;
+        const ty    = 0.44 * Math.sin(angle) + (Math.random() - 0.5) * 0.05;
+        const tz    = (Math.random() - 0.5) * 0.04; // minimal depth jitter
+
+        const bobPhase  = Math.random() * Math.PI * 2;        // random idle bob phase
+        const launchDelay = i * 0.04 + Math.random() * 0.05; // cascade stagger per fragment
+        const spinAxis  = new THREE.Vector3(
+          Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5
+        ).normalize();
+        const spinSpeed = (Math.random() - 0.5) * 10;        // rad/s, CW or CCW
+
+        // Build mesh
+        const geo = new THREE.PlaneGeometry(LABEL_W, LABEL_H);
+        const tex = makeLabelTexture(cat.name, cat.percentage, cat.hex);
+        const mat = new THREE.MeshBasicMaterial({
+          map: tex,
+          transparent: true,
+          opacity: 0,             // invisible until explode begins
+          side: THREE.DoubleSide,
+          depthWrite: false,
+          blending: THREE.NormalBlending,
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.visible = false;
+        // Start position at brain centroid (local space)
+        mesh.position.set(0, 0, 0);
+        brainGroup.add(mesh);
+
+        return {
+          mesh,
+          tex,
+          target: new THREE.Vector3(tx, ty, tz),
+          px: 0, py: 0, pz: 0,
+          vx: 0, vy: 0, vz: 0,
+          bobPhase,
+          launchDelay,
+          spinAxis,
+          spinSpeed,
+          scaleT: 0,
+          launched: false,
+          opacity: 0,
+        };
+      });
+
+      explodeSystem = {
+        fragments,
+        isExploded: false,
+        isAnimating: false,
+        lastTapTime: 0,
+        labelOpacity: 0,
+        badgeOpacity: 1,
+        badgeOpacityCurrent: 1,
+        brainOpacity: 1,
+        brainScale: 1,
+        explodeElapsed: 0,
+        shockwaveMesh: null,
+        shockwaveT: 0,
+      };
+    }
+
+    function destroyExplodeSystem() {
+      if (!explodeSystem) return;
+      for (const frag of explodeSystem.fragments) {
+        brainGroup.remove(frag.mesh);
+        frag.mesh.geometry.dispose();
+        frag.mesh.material.dispose();
+        frag.tex.dispose();
+      }
+      if (explodeSystem.shockwaveMesh) {
+        brainGroup.remove(explodeSystem.shockwaveMesh);
+        explodeSystem.shockwaveMesh.geometry.dispose();
+        explodeSystem.shockwaveMesh.material.dispose();
+        explodeSystem.shockwaveMesh = null;
+      }
+      explodeSystem = null;
+    }
+
+    // Called by animate() every frame.
+    // dt — delta time in seconds.
+    function tickExplode(elapsed, dt) {
+      if (!explodeSystem) return;
+
+      const { fragments, isExploded, isAnimating } = explodeSystem;
+      if (!isAnimating && !isExploded) return; // nothing to do when assembled at rest
+
+      // Advance explosion timer — drives staggered fragment launches
+      if (isExploded) explodeSystem.explodeElapsed += dt;
+
+      for (const frag of fragments) {
+        if (isExploded) {
+          // Staggered launch — stay hidden until this fragment's delay elapses
+          if (!frag.launched) {
+            if (explodeSystem.explodeElapsed < frag.launchDelay) continue;
+            frag.mesh.visible = true;
+            frag.launched = true;
+            // Initial velocity burst toward target — the explosive feel
+            const len = frag.target.length() || 1;
+            const burst = 4.0 + Math.random() * 2.5;
+            frag.vx = (frag.target.x / len) * burst;
+            frag.vy = (frag.target.y / len) * burst;
+            frag.vz = (frag.target.z / len) * burst;
+          }
+
+          // Spring physics toward target
+          const ax = -SPRING_STIFFNESS * (frag.px - frag.target.x) - SPRING_DAMPING * frag.vx;
+          const ay = -SPRING_STIFFNESS * (frag.py - frag.target.y) - SPRING_DAMPING * frag.vy;
+          const az = -SPRING_STIFFNESS * (frag.pz - frag.target.z) - SPRING_DAMPING * frag.vz;
+          frag.vx += ax * dt;
+          frag.vy += ay * dt;
+          frag.vz += az * dt;
+          frag.px += frag.vx * dt;
+          frag.py += frag.vy * dt;
+          frag.pz += frag.vz * dt;
+
+          // Idle bob when settled
+          const distToTarget = Math.sqrt(
+            (frag.px - frag.target.x) ** 2 +
+            (frag.py - frag.target.y) ** 2 +
+            (frag.pz - frag.target.z) ** 2
+          );
+          const bobY = distToTarget < 0.05
+            ? Math.sin(elapsed * (Math.PI * 2 / 2.5) + frag.bobPhase) * 0.008
+            : 0;
+          frag.mesh.position.set(frag.px, frag.py + bobY, frag.pz);
+
+          // Spin during flight, snap to billboard once settled
+          if (distToTarget > 0.15) {
+            frag.mesh.rotateOnAxis(frag.spinAxis, frag.spinSpeed * dt);
+          } else {
+            frag.mesh.quaternion.slerp(camera.quaternion, Math.min(1, dt * 10));
+          }
+
+          // Fade in
+          frag.opacity = Math.min(1, frag.opacity + dt * 3.5);
+          frag.mesh.material.opacity = frag.opacity;
+
+          // Scale in with easeOutBack overshoot
+          frag.scaleT = Math.min(1, frag.scaleT + dt * 3.5);
+          frag.mesh.scale.setScalar(frag.scaleT < 1 ? Math.max(0, easeOutBack(frag.scaleT)) : 1);
+
+        } else {
+          if (!frag.mesh.visible) continue;
+
+          // dt-based lerp (frame-rate independent)
+          const t = Math.min(1, dt * 7);
+          frag.px += (0 - frag.px) * t;
+          frag.py += (0 - frag.py) * t;
+          frag.pz += (0 - frag.pz) * t;
+          frag.vx = 0; frag.vy = 0; frag.vz = 0;
+          frag.mesh.position.set(frag.px, frag.py, frag.pz);
+
+          // Fade + scale out
+          frag.opacity = Math.max(0, frag.opacity - dt * 3.5);
+          frag.scaleT  = Math.max(0, frag.scaleT  - dt * 4.0);
+          frag.mesh.material.opacity = frag.opacity;
+          frag.mesh.scale.setScalar(frag.scaleT);
+
+          const dist = Math.sqrt(frag.px ** 2 + frag.py ** 2 + frag.pz ** 2);
+          if (dist < 0.003 && frag.opacity === 0) {
+            frag.mesh.visible = false;
+          }
+        }
+      }
+
+      // ── Shockwave expansion ─────────────────────────────────────────────────────
+      if (explodeSystem.shockwaveMesh) {
+        explodeSystem.shockwaveT = Math.min(1, explodeSystem.shockwaveT + dt * 2.8);
+        const st = explodeSystem.shockwaveT;
+        explodeSystem.shockwaveMesh.scale.setScalar(brainModelBaseScale * (0.5 + st * 3.5));
+        explodeSystem.shockwaveMesh.material.opacity = 0.6 * (1 - st);
+        if (st >= 1) {
+          brainGroup.remove(explodeSystem.shockwaveMesh);
+          explodeSystem.shockwaveMesh.geometry.dispose();
+          explodeSystem.shockwaveMesh.material.dispose();
+          explodeSystem.shockwaveMesh = null;
+        }
+      }
+
+      // ── Brain fade + scale burst ────────────────────────────────────────────────
+      const s = STATES[currentState];
+      if (isExploded) {
+        // Fast dissolve (~200ms) with dramatic scale burst to 1.8×
+        explodeSystem.brainOpacity = Math.max(0, explodeSystem.brainOpacity - dt * 5.0);
+        explodeSystem.brainScale   = brainModelBaseScale * (1 + (1 - explodeSystem.brainOpacity) * 0.8);
+      } else {
+        // Fade in ~400ms, scale eases from 0.7 → 1.0× base
+        explodeSystem.brainOpacity = Math.min(1, explodeSystem.brainOpacity + dt * 2.5);
+        explodeSystem.brainScale   = brainModelBaseScale * (0.7 + explodeSystem.brainOpacity * 0.3);
+      }
+
+      const bop = explodeSystem.brainOpacity;
+      for (const m of brainMeshes) {
+        m.visible = bop > 0;
+        m.material.opacity = bop;
+      }
+      if (glowMesh)       glowMesh.material.opacity       = bop * s.glowOpacity;
+      if (particleSystem) particleSystem.material.opacity = bop * 0.85;
+      if (brainModelRoot) brainModelRoot.scale.setScalar(explodeSystem.brainScale);
+
+      // ── Badge fade ─────────────────────────────────────────────────────────────
+      const badgeTarget = isExploded ? 0 : 1;
+      explodeSystem.badgeOpacityCurrent += (badgeTarget - explodeSystem.badgeOpacityCurrent) * Math.min(1, dt * 6);
+      arStateBadgeEl.style.opacity = explodeSystem.badgeOpacityCurrent;
+
+      // ── Detect animation complete ───────────────────────────────────────────────
+      if (!isExploded && isAnimating) {
+        const allHidden = fragments.every(f => !f.mesh.visible);
+        const brainFullyIn = explodeSystem.brainOpacity >= 1;
+        if (allHidden && brainFullyIn) {
+          explodeSystem.isAnimating = false;
+          if (brainModelRoot) brainModelRoot.scale.setScalar(brainModelBaseScale);
+        }
+      }
+    }
+
+    // ─── Tap detection ────────────────────────────────────────────────────────────
+    const raycaster = new THREE.Raycaster();
+    const tapNDC    = new THREE.Vector2();
+
+    function onTap(clientX, clientY) {
+      if (!explodeSystem) return;
+
+      const now = Date.now();
+      if (now - explodeSystem.lastTapTime < EXPLODE_DEBOUNCE_MS) return;
+
+      if (explodeSystem.isExploded) {
+        // Any tap reassembles
+        triggerReassemble();
+        explodeSystem.lastTapTime = now;
+        return;
+      }
+
+      // Check if tap hit a brain mesh
+      const canvas = renderer.domElement;
+      const rect = canvas.getBoundingClientRect();
+      tapNDC.x =  ((clientX - rect.left) / rect.width)  * 2 - 1;
+      tapNDC.y = -((clientY - rect.top)  / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(tapNDC, camera);
+      const hits = raycaster.intersectObjects(brainMeshes, false);
+      if (hits.length > 0) {
+        triggerExplode();
+        explodeSystem.lastTapTime = now;
+      }
+    }
+
+    function triggerExplode() {
+      if (!explodeSystem || explodeSystem.isExploded) return;
+      explodeSystem.isExploded  = true;
+      explodeSystem.isAnimating = true;
+      explodeSystem.brainOpacity = 1;
+      explodeSystem.brainScale   = 1;
+
+      // Freeze group rotation so fragment billboard math (local ← world quaternion) is correct.
+      // Brain is dissolving at this point so the snap is invisible.
+      brainGroup.rotation.set(0, 0, 0);
+
+      // Ensure brain meshes are visible at full opacity — tickExplode will fade them out
+      for (const m of brainMeshes) { m.visible = true; m.material.opacity = 1; }
+
+      // Spawn fragments at centroid — each waits for its staggered launch delay
+      for (const frag of explodeSystem.fragments) {
+        frag.px = 0; frag.py = 0; frag.pz = 0;
+        frag.vx = 0; frag.vy = 0; frag.vz = 0;
+        frag.opacity = 0;
+        frag.scaleT = 0;
+        frag.launched = false;
+        frag.mesh.position.set(0, 0, 0);
+        frag.mesh.material.opacity = 0;
+        frag.mesh.scale.setScalar(0);
+        frag.mesh.visible = false;
+      }
+      explodeSystem.explodeElapsed = 0;
+
+      // Shockwave sphere — expands and fades on explode
+      if (explodeSystem.shockwaveMesh) {
+        brainGroup.remove(explodeSystem.shockwaveMesh);
+        explodeSystem.shockwaveMesh.geometry.dispose();
+        explodeSystem.shockwaveMesh.material.dispose();
+      }
+      const swGeo = new THREE.SphereGeometry(1, 20, 20);
+      const swMat = new THREE.MeshBasicMaterial({
+        color: new THREE.Color(STATES[currentState].color),
+        transparent: true,
+        opacity: 0.6,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.FrontSide,
+      });
+      explodeSystem.shockwaveMesh = new THREE.Mesh(swGeo, swMat);
+      explodeSystem.shockwaveMesh.scale.setScalar(brainModelBaseScale * 0.5);
+      explodeSystem.shockwaveT = 0;
+      brainGroup.add(explodeSystem.shockwaveMesh);
+
+      arHint.textContent = 'Tap anywhere to reassemble';
+    }
+
+    function triggerReassemble() {
+      if (!explodeSystem || !explodeSystem.isExploded) return;
+      explodeSystem.isExploded  = false;
+      explodeSystem.isAnimating = true;
+      explodeSystem.brainOpacity = 0;
+      explodeSystem.brainScale   = 0.8;
+
+      // Show brain meshes at opacity 0 — tickExplode will fade them back in
+      for (const m of brainMeshes) { m.visible = true; m.material.opacity = 0; }
+      if (glowMesh)       { glowMesh.visible = true;       glowMesh.material.opacity = 0; }
+      if (particleSystem) { particleSystem.visible = true; particleSystem.material.opacity = 0; }
+
+      arHint.textContent = 'Tap brain to explore categories';
+    }
+
+    function setBrainVisible(visible) {
+      for (const m of brainMeshes) { m.visible = visible; if (m.material) m.material.opacity = visible ? 1 : 0; }
+      if (glowMesh)       glowMesh.visible = visible;
+      if (particleSystem) particleSystem.visible = visible;
+    }
+
+    // ─── Attach tap listeners once canvas exists ──────────────────────────────────
+    function attachTapListeners(canvas) {
+      canvas.addEventListener('touchstart', (e) => {
+        // Prevent scroll/zoom on touch devices
+        e.preventDefault();
+        const t = e.touches[0];
+        onTap(t.clientX, t.clientY);
+      }, { passive: false });
+
+      canvas.addEventListener('click', (e) => {
+        onTap(e.clientX, e.clientY);
+      });
+    }
+
+    // ─── Three.js init ────────────────────────────────────────────────────────────
     function initThree(canvas) {
       renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
       renderer.setPixelRatio(window.devicePixelRatio);
@@ -425,10 +878,14 @@
       scene.add(brainGroup);
       clock = new THREE.Clock();
 
-      // Build initial FX before model loads so there's something to see
       buildFxLayer(currentState);
 
-      const onLoad = () => { arHint.textContent = 'Point camera at your face'; };
+      // Build explode system with demo data immediately; will be replaced after fetch
+      createExplodeSystem(calcCategoryBreakdown([]));
+
+      const onLoad = () => {
+        arHint.textContent = 'Tap brain to explore categories';
+      };
 
       const loader = new GLTFLoader();
       loader.load(
@@ -439,20 +896,34 @@
           const size = box.getSize(new THREE.Vector3());
           const maxDim = Math.max(size.x, size.y, size.z);
           model.scale.setScalar(0.6 / maxDim);
+          brainModelBaseScale = 0.6 / maxDim;
           const centre = box.getCenter(new THREE.Vector3());
           model.position.sub(centre.multiplyScalar(0.6 / maxDim));
           brainMaterial = makeMaterial(currentState);
-          model.traverse(c => { if (c.isMesh) c.material = brainMaterial; });
+          model.traverse(c => {
+            if (c.isMesh) {
+              c.material = brainMaterial;
+              brainMeshes.push(c);
+            }
+          });
+          brainModelRoot = model;
           brainGroup.add(model);
           onLoad();
         },
         undefined,
         () => {
+          // Fallback sphere
           brainMaterial = makeMaterial(currentState);
-          brainGroup.add(new THREE.Mesh(new THREE.SphereGeometry(0.25, 32, 32), brainMaterial));
+          const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.25, 32, 32), brainMaterial);
+          brainMeshes.push(sphere);
+          brainModelRoot = sphere;
+          brainModelBaseScale = 1;
+          brainGroup.add(sphere);
           onLoad();
         }
       );
+
+      attachTapListeners(canvas);
     }
 
     function makeMaterial(stateName) {
@@ -463,6 +934,8 @@
         emissiveIntensity: s.emissiveBase,
         roughness: 0.4,
         metalness: 0.2,
+        transparent: true,
+        opacity: 1,
       });
     }
 
@@ -474,13 +947,19 @@
         brainMaterial.emissive.setHex(s.emissive);
       }
       if (pointLight) pointLight.color.setHex(s.color);
-      buildFxLayer(stateName); // rebuild glow + particles for new state
+      buildFxLayer(stateName);
       renderStateBadge(stateName);
     }
 
-    function animate() {
+    // ─── Animation loop ───────────────────────────────────────────────────────────
+    let prevTime = 0;
+
+    function animate(timestamp) {
       animFrameId = requestAnimationFrame(animate);
       if (!renderer) return;
+
+      const dt = Math.min((timestamp - prevTime) / 1000, 0.05); // cap at 50ms to avoid spiral
+      prevTime = timestamp;
 
       const canvas = renderer.domElement;
       const w = canvas.clientWidth, h = canvas.clientHeight;
@@ -493,25 +972,31 @@
       const elapsed = clock.getElapsedTime();
       const s = STATES[currentState];
 
-      // Brain pulse + rotation
+      // Brain pulse + rotation (only when assembled)
+      const assembled = !explodeSystem || !explodeSystem.isExploded;
       if (brainMaterial) {
         const pulse = s.pulseSpeed > 0 ? Math.sin(elapsed * s.pulseSpeed) * 0.15 : 0;
         brainMaterial.emissiveIntensity = s.emissiveBase + pulse;
         pointLight.intensity = 1.5 + pulse * 2;
       }
-      brainGroup.rotation.y += s.rotSpeed;
+      if (assembled) {
+        brainGroup.rotation.y += s.rotSpeed;
+      }
 
-      // Glow breathe (separate slower sine)
+      // Glow breathe
       if (glowMesh) {
         const breathe = 1 + Math.sin(elapsed * 1.2) * 0.06;
         glowMesh.scale.setScalar(breathe);
       }
 
-      // Particles orbit — rotate the whole cloud on two axes
+      // Particles orbit
       if (particleSystem) {
         particleSystem.rotation.y += s.particles.speed;
         particleSystem.rotation.x += s.particles.speed * 0.3;
       }
+
+      // Explode / reassemble tick
+      tickExplode(elapsed, dt);
 
       renderer.render(scene, camera);
     }
@@ -558,27 +1043,35 @@
       arView.style.display = 'block';
       arUI.style.display = 'block';
 
-      // Init Three.js on the canvas (now visible, so it has real dimensions)
+      // Init Three.js on the canvas (now visible so it has real dimensions)
       const canvas = document.getElementById('three-canvas');
       initThree(canvas);
-      animate();
+      // Pass timestamp=0 for first frame; prevTime initialises to 0 so dt=0 on frame 1 (harmless)
+      requestAnimationFrame(animate);
 
-      // Fetch real state while animation is already running
-      fetchBrainState().then(applyBrainState);
+      // Fetch real state and categories while animation is already running
+      fetchBrainState().then(({ state, categories }) => {
+        applyBrainState(state);
+        // Rebuild explode system with real category data
+        createExplodeSystem(categories);
+        categoryData = categories;
+      });
     });
 
     // ─── Exit AR ──────────────────────────────────────────────────────────────────
     document.getElementById('exit-btn').addEventListener('click', () => {
       if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
       stopCamera();
+      destroyExplodeSystem();
       if (renderer) { renderer.dispose(); renderer = null; }
-      brainGroup = null; brainMaterial = null;
+      brainGroup = null; brainMaterial = null; brainMeshes = [];
 
       arView.style.display = 'none';
       arUI.style.display = 'none';
       landing.style.display = 'flex';
       startBtn.disabled = false;
       startBtn.textContent = 'Start AR';
+      arStateBadgeEl.style.opacity = '1';
     });
 
     // ─── Camera not supported ─────────────────────────────────────────────────────
