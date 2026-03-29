@@ -1,9 +1,16 @@
 const SUPABASE_URL = "https://sagbrkjfdqxqndrfekkp.supabase.co";
 const SUPABASE_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhZ2Jya2pmZHF4cW5kcmZla2twIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MTkzNjgsImV4cCI6MjA5MDI5NTM2OH0.R3X09rKRcUES59xnLP_dsQacq6b5gg2QiTIfbTOeTxI";
-const GEMINI_API_KEY = "AIzaSyCwZvnrAeR2QhZ-NIbu9GZQQv1VeSRkXvg"; // TODO: replace if key is rotated
+const GEMINI_API_KEY = "AIzaSyDDwBUSXAGthSu6oJrpDRNXej048Aoz8xo";
 
-const VALID_CATEGORIES = ["learning", "entertainment", "social media", "productivity", "news", "other"];
+const VALID_CATEGORIES = [
+  "learning",
+  "entertainment",
+  "social media",
+  "productivity",
+  "news",
+  "other",
+];
 
 // ─── In-memory state ────────────────────────────────────────────────────────
 let activeTabId = null;
@@ -33,7 +40,7 @@ async function getOrCreateSession() {
 async function classifyWithGemini(url, title) {
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -61,13 +68,20 @@ Reply with only the category word, nothing else.`,
               ],
             },
           ],
+          generationConfig: {
+            temperature: 0,
+            maxOutputTokens: 50,
+          },
         }),
-      }
+      },
     );
 
     const data = await res.json();
-    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim().toLowerCase();
-    return VALID_CATEGORIES.includes(raw) ? raw : "other";
+    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text
+      ?.trim()
+      .toLowerCase() ?? "";
+    const match = VALID_CATEGORIES.find((c) => raw.includes(c));
+    return match ?? "other";
   } catch (err) {
     console.warn("Gemini classification failed:", err);
     return "uncategorized";
@@ -77,7 +91,12 @@ Reply with only the category word, nothing else.`,
 // ─── Create event in Supabase, returns the new event's id ───────────────────
 async function createEvent(tab) {
   const url = tab.url;
-  if (!url || url.startsWith("chrome://") || url.startsWith("chrome-extension://")) return null;
+  if (
+    !url ||
+    url.startsWith("chrome://") ||
+    url.startsWith("chrome-extension://")
+  )
+    return null;
 
   let domain = "";
   try {

@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>MindMap — Brain AR</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Landing screen */
+    #landing {
+      position: relative;
+      z-index: 10;
+      text-align: center;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    #landing h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    #landing h1 span { color: #00ffcc; }
+
+    #landing p {
+      font-size: 0.95rem;
+      color: rgba(255,255,255,0.6);
+      max-width: 280px;
+      line-height: 1.5;
+    }
+
+    .state-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 1rem;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .state-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    #start-btn {
+      background: #00ffcc;
+      color: #0a0a0f;
+      border: none;
+      padding: 0.9rem 2.5rem;
+      border-radius: 999px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      transition: opacity 0.2s;
+    }
+
+    #start-btn:hover { opacity: 0.85; }
+    #start-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    #error-msg {
+      display: none;
+      color: #ff6b6b;
+      font-size: 0.85rem;
+      max-width: 260px;
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    /* AR view */
+    #ar-view {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 5;
+    }
+
+    #camera-video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      /* Mirror so it feels like a selfie */
+      transform: scaleX(-1);
+    }
+
+    #three-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* AR UI overlay */
+    #ar-ui {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    #ar-hint {
+      position: absolute;
+      bottom: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(8px);
+      padding: 0.6rem 1.2rem;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.85);
+      white-space: nowrap;
+      transition: opacity 0.4s;
+    }
+
+    #ar-state-badge {
+      position: absolute;
+      top: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    #exit-btn {
+      pointer-events: all;
+      position: absolute;
+      bottom: 2.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255,255,255,0.15);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      padding: 0.7rem 2rem;
+      border-radius: 999px;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Landing screen -->
+  <div id="landing">
+    <h1>Mind<span>Map</span></h1>
+    <p>Point the camera at your face to see the health of your brain.</p>
+    <div id="state-badge-landing" class="state-badge"></div>
+    <button id="start-btn">Start AR</button>
+    <p id="error-msg"></p>
+    <p id="debug-msg" style="font-size:0.75rem;color:rgba(255,255,255,0.35);margin-top:-0.5rem;"></p>
+  </div>
+
+  <!-- AR camera + Three.js layer -->
+  <div id="ar-view">
+    <video id="camera-video" autoplay playsinline muted></video>
+    <canvas id="three-canvas"></canvas>
+  </div>
+
+  <!-- AR overlay UI -->
+  <div id="ar-ui">
+    <div id="ar-state-badge" class="state-badge"></div>
+    <div id="ar-hint">Hold up — brain loading…</div>
+    <button id="exit-btn">Exit AR</button>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.150.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.150.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+    // ─── Supabase config ────────────────────────────────────────────────────────
+    const SUPABASE_URL = 'https://sagbrkjfdqxqndrfekkp.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhZ2Jya2pmZHF4cW5kcmZla2twIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MTkzNjgsImV4cCI6MjA5MDI5NTM2OH0.R3X09rKRcUES59xnLP_dsQacq6b5gg2QiTIfbTOeTxI';
+
+    // ─── Brain state definitions ─────────────────────────────────────────────────
+    const STATES = {
+      thriving: {
+        label: 'Thriving',
+        color: 0x00ffcc,
+        emissive: 0x00ffaa,
+        emissiveBase: 0.8,
+        pulseSpeed: 4.0,
+        rotSpeed: 0.008,
+        badgeBg: '#00ffcc22',
+        badgeColor: '#00ffcc',
+        dotColor: '#00ffcc',
+        glowOpacity: 0.35,
+        particles: { count: 80, speed: 0.016, size: 0.018 },
+      },
+      healthy: {
+        label: 'Healthy',
+        color: 0x88aaff,
+        emissive: 0x4466ff,
+        emissiveBase: 0.3,
+        pulseSpeed: 1.0,
+        rotSpeed: 0.004,
+        badgeBg: '#88aaff22',
+        badgeColor: '#88aaff',
+        dotColor: '#88aaff',
+        glowOpacity: 0.18,
+        particles: { count: 45, speed: 0.008, size: 0.013 },
+      },
+      sluggish: {
+        label: 'Sluggish',
+        color: 0x887766,
+        emissive: 0x332211,
+        emissiveBase: 0.1,
+        pulseSpeed: 0.4,
+        rotSpeed: 0.002,
+        badgeBg: '#88776622',
+        badgeColor: '#aa9988',
+        dotColor: '#aa9988',
+        glowOpacity: 0.07,
+        particles: { count: 18, speed: 0.003, size: 0.009 },
+      },
+      rotting: {
+        label: 'Rotting',
+        color: 0x555555,
+        emissive: 0x000000,
+        emissiveBase: 0.0,
+        pulseSpeed: 0.0,
+        rotSpeed: 0.001,
+        badgeBg: '#55555522',
+        badgeColor: '#888888',
+        dotColor: '#666666',
+        glowOpacity: 0.02,
+        particles: { count: 5, speed: 0.001, size: 0.007 },
+      },
+    };
+
+    // ─── Learning classifier ──────────────────────────────────────────────────────
+    const LEARNING_KEYWORDS = [
+      'coding', 'tutorial', 'education', 'science', 'documentary',
+      'language', 'math', 'programming', 'lecture', 'course', 'learn',
+      'history', 'engineering', 'how to', 'explainer',
+    ];
+
+    // Use Gemini category from Supabase, fall back to keyword matching if uncategorized
+    function classifyEvent(ev) {
+      if (ev.category === 'learning') return 'learning';
+      if (ev.category && ev.category !== 'uncategorized') return 'entertainment';
+      // fallback: keyword match on title + domain
+      const text = `${ev.title || ''} ${ev.domain || ''}`.toLowerCase();
+      return LEARNING_KEYWORDS.some(kw => text.includes(kw)) ? 'learning' : 'entertainment';
+    }
+
+    function calcBrainState(events) {
+      if (!events || events.length === 0) return 'healthy';
+      let learningSecs = 0, totalSecs = 0;
+      for (const ev of events) {
+        const secs = ev.duration || 0; // extension stores seconds in "duration"
+        totalSecs += secs;
+        if (classifyEvent(ev) === 'learning') learningSecs += secs;
+      }
+      if (totalSecs === 0) return 'healthy';
+      const ratio = learningSecs / totalSecs;
+      if (ratio >= 0.7) return 'thriving';
+      if (ratio >= 0.5) return 'healthy';
+      if (ratio >= 0.3) return 'sluggish';
+      return 'rotting';
+    }
+
+    // Sign in anonymously (same as extension does) to get a session token that passes RLS
+    async function getAnonSession() {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      return data.access_token;
+    }
+
+    async function fetchBrainState() {
+      try {
+        const token = await getAnonSession();
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        const url = `${SUPABASE_URL}/rest/v1/events?select=title,domain,duration,category&created_at=gte.${sevenDaysAgo}`;
+        const res = await fetch(url, {
+          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error(`Supabase ${res.status}`);
+        const events = await res.json();
+        console.log(`Fetched ${events.length} events from Supabase`);
+        document.getElementById('debug-msg').textContent = `Supabase: ${events.length} events fetched`;
+        return calcBrainState(events);
+      } catch (err) {
+        document.getElementById('debug-msg').textContent = `Supabase error: ${err.message}`;
+        console.warn('Supabase fetch failed, using fallback:', err);
+        return 'thriving';
+      }
+    }
+
+    // ─── DOM refs ─────────────────────────────────────────────────────────────────
+    const startBtn   = document.getElementById('start-btn');
+    const landing    = document.getElementById('landing');
+    const arView     = document.getElementById('ar-view');
+    const arUI       = document.getElementById('ar-ui');
+    const errorMsg   = document.getElementById('error-msg');
+    const arHint     = document.getElementById('ar-hint');
+    const cameraVideo = document.getElementById('camera-video');
+
+    // ─── Badge ────────────────────────────────────────────────────────────────────
+    function renderStateBadge(stateName) {
+      const s = STATES[stateName];
+      const html = `<span class="state-dot" style="background:${s.dotColor}"></span> ${s.label}`;
+      const style = `background:${s.badgeBg}; color:${s.badgeColor}; border:1px solid ${s.badgeColor}44;`;
+      ['state-badge-landing', 'ar-state-badge'].forEach(id => {
+        const el = document.getElementById(id);
+        el.innerHTML = html;
+        el.setAttribute('style', style);
+      });
+    }
+
+    fetchBrainState().then(renderStateBadge);
+
+    // ─── Three.js setup ───────────────────────────────────────────────────────────
+    let renderer, scene, camera, brainGroup, brainMaterial, pointLight, clock;
+    let glowMesh = null, particleSystem = null;
+    let animFrameId = null;
+    let currentState = 'thriving';
+
+    const GLOW_RADIUS    = 0.42;
+    const PARTICLE_RADIUS = 0.62;
+
+    // Build/rebuild glow sphere + particle cloud for a given state.
+    // Removes old fx from brainGroup first.
+    function buildFxLayer(stateName) {
+      if (glowMesh)      { brainGroup.remove(glowMesh);      glowMesh.geometry.dispose();      glowMesh.material.dispose();      glowMesh = null; }
+      if (particleSystem){ brainGroup.remove(particleSystem); particleSystem.geometry.dispose(); particleSystem.material.dispose(); particleSystem = null; }
+
+      const s = STATES[stateName];
+      const col = new THREE.Color(s.color);
+
+      // Glow — BackSide sphere slightly larger than brain, additive blend
+      glowMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(GLOW_RADIUS, 32, 32),
+        new THREE.MeshBasicMaterial({
+          color: col,
+          transparent: true,
+          opacity: s.glowOpacity,
+          side: THREE.BackSide,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        })
+      );
+      brainGroup.add(glowMesh);
+
+      // Particles — distributed on a sphere, will be rotated each frame
+      const { count, size } = s.particles;
+      const geo = new THREE.BufferGeometry();
+      const pos = new Float32Array(count * 3);
+      for (let i = 0; i < count; i++) {
+        // Uniform random distribution on sphere surface
+        const phi   = Math.acos(2 * Math.random() - 1);
+        const theta = Math.random() * Math.PI * 2;
+        pos[i * 3]     = PARTICLE_RADIUS * Math.sin(phi) * Math.cos(theta);
+        pos[i * 3 + 1] = PARTICLE_RADIUS * Math.cos(phi);
+        pos[i * 3 + 2] = PARTICLE_RADIUS * Math.sin(phi) * Math.sin(theta);
+      }
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      particleSystem = new THREE.Points(geo, new THREE.PointsMaterial({
+        color: col,
+        size,
+        transparent: true,
+        opacity: 0.85,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }));
+      brainGroup.add(particleSystem);
+    }
+
+    function initThree(canvas) {
+      renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+      renderer.setClearColor(0x000000, 0);
+
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(60, canvas.clientWidth / canvas.clientHeight, 0.01, 100);
+      camera.position.set(0, 0, 2);
+
+      scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+      dirLight.position.set(1, 2, 1);
+      scene.add(dirLight);
+      pointLight = new THREE.PointLight(0x00ffcc, 2, 5);
+      pointLight.position.set(0, 0.5, 0.5);
+      scene.add(pointLight);
+
+      brainGroup = new THREE.Group();
+      brainGroup.position.set(0, 0.5, 0);
+      scene.add(brainGroup);
+      clock = new THREE.Clock();
+
+      // Build initial FX before model loads so there's something to see
+      buildFxLayer(currentState);
+
+      const onLoad = () => { arHint.textContent = 'Point camera at your face'; };
+
+      const loader = new GLTFLoader();
+      loader.load(
+        'assets/brain.glb',
+        (gltf) => {
+          const model = gltf.scene;
+          const box = new THREE.Box3().setFromObject(model);
+          const size = box.getSize(new THREE.Vector3());
+          const maxDim = Math.max(size.x, size.y, size.z);
+          model.scale.setScalar(0.6 / maxDim);
+          const centre = box.getCenter(new THREE.Vector3());
+          model.position.sub(centre.multiplyScalar(0.6 / maxDim));
+          brainMaterial = makeMaterial(currentState);
+          model.traverse(c => { if (c.isMesh) c.material = brainMaterial; });
+          brainGroup.add(model);
+          onLoad();
+        },
+        undefined,
+        () => {
+          brainMaterial = makeMaterial(currentState);
+          brainGroup.add(new THREE.Mesh(new THREE.SphereGeometry(0.25, 32, 32), brainMaterial));
+          onLoad();
+        }
+      );
+    }
+
+    function makeMaterial(stateName) {
+      const s = STATES[stateName];
+      return new THREE.MeshStandardMaterial({
+        color: new THREE.Color(s.color),
+        emissive: new THREE.Color(s.emissive),
+        emissiveIntensity: s.emissiveBase,
+        roughness: 0.4,
+        metalness: 0.2,
+      });
+    }
+
+    function applyBrainState(stateName) {
+      currentState = stateName;
+      const s = STATES[stateName];
+      if (brainMaterial) {
+        brainMaterial.color.setHex(s.color);
+        brainMaterial.emissive.setHex(s.emissive);
+      }
+      if (pointLight) pointLight.color.setHex(s.color);
+      buildFxLayer(stateName); // rebuild glow + particles for new state
+      renderStateBadge(stateName);
+    }
+
+    function animate() {
+      animFrameId = requestAnimationFrame(animate);
+      if (!renderer) return;
+
+      const canvas = renderer.domElement;
+      const w = canvas.clientWidth, h = canvas.clientHeight;
+      if (canvas.width !== w || canvas.height !== h) {
+        renderer.setSize(w, h, false);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+      }
+
+      const elapsed = clock.getElapsedTime();
+      const s = STATES[currentState];
+
+      // Brain pulse + rotation
+      if (brainMaterial) {
+        const pulse = s.pulseSpeed > 0 ? Math.sin(elapsed * s.pulseSpeed) * 0.15 : 0;
+        brainMaterial.emissiveIntensity = s.emissiveBase + pulse;
+        pointLight.intensity = 1.5 + pulse * 2;
+      }
+      brainGroup.rotation.y += s.rotSpeed;
+
+      // Glow breathe (separate slower sine)
+      if (glowMesh) {
+        const breathe = 1 + Math.sin(elapsed * 1.2) * 0.06;
+        glowMesh.scale.setScalar(breathe);
+      }
+
+      // Particles orbit — rotate the whole cloud on two axes
+      if (particleSystem) {
+        particleSystem.rotation.y += s.particles.speed;
+        particleSystem.rotation.x += s.particles.speed * 0.3;
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // ─── Camera stream ────────────────────────────────────────────────────────────
+    let cameraStream = null;
+
+    async function startCamera() {
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      cameraVideo.srcObject = cameraStream;
+      await cameraVideo.play();
+    }
+
+    function stopCamera() {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+      }
+    }
+
+    // ─── Start button ─────────────────────────────────────────────────────────────
+    startBtn.addEventListener('click', async () => {
+      startBtn.disabled = true;
+      startBtn.textContent = 'Requesting camera…';
+      errorMsg.style.display = 'none';
+
+      try {
+        await startCamera();
+      } catch (err) {
+        startBtn.textContent = 'Start AR';
+        startBtn.disabled = false;
+        errorMsg.textContent = err.name === 'NotAllowedError'
+          ? 'Camera permission denied. Allow camera access in Settings and try again.'
+          : 'Could not access camera: ' + err.message;
+        errorMsg.style.display = 'block';
+        return;
+      }
+
+      // Show AR view
+      landing.style.display = 'none';
+      arView.style.display = 'block';
+      arUI.style.display = 'block';
+
+      // Init Three.js on the canvas (now visible, so it has real dimensions)
+      const canvas = document.getElementById('three-canvas');
+      initThree(canvas);
+      animate();
+
+      // Fetch real state while animation is already running
+      fetchBrainState().then(applyBrainState);
+    });
+
+    // ─── Exit AR ──────────────────────────────────────────────────────────────────
+    document.getElementById('exit-btn').addEventListener('click', () => {
+      if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
+      stopCamera();
+      if (renderer) { renderer.dispose(); renderer = null; }
+      brainGroup = null; brainMaterial = null;
+
+      arView.style.display = 'none';
+      arUI.style.display = 'none';
+      landing.style.display = 'flex';
+      startBtn.disabled = false;
+      startBtn.textContent = 'Start AR';
+    });
+
+    // ─── Camera not supported ─────────────────────────────────────────────────────
+    if (!navigator.mediaDevices?.getUserMedia) {
+      startBtn.textContent = 'Camera Not Supported';
+      startBtn.disabled = true;
+    }
+  </script>
+</body>
+</html>
