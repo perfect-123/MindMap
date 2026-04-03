@@ -19,6 +19,61 @@ const STATES = [
 const LEARNING_CATS = new Set(['learning', 'productivity', 'news']);
 
 // ── Clock ────────────────────────────────────────────────────────────────────
+const USERNAME = 'User1'; // swap out once auth is implemented
+
+const GREETINGS = {
+  earlyMorning: [ // 5am–8am
+    `Rise and shine`,
+    `Early start today`,
+    `Up with the sun`,
+    `Good morning, early bird`,
+  ],
+  morning: [ // 8am–12pm
+    `Good morning`,
+    `Welcome back`,
+    `Hope you slept well`,
+    `Ready for the day`,
+  ],
+  afternoon: [ // 12pm–5pm
+    `Good afternoon`,
+    `Welcome back`,
+    `Hope the day's treating you well`,
+    `Afternoon check-in`,
+  ],
+  evening: [ // 5pm–8pm
+    `Good evening`,
+    `Welcome back`,
+    `Winding down?`,
+    `Hope today was productive`,
+  ],
+  lateNight: [ // 8pm–12am
+    `Burning the midnight oil`,
+    `Late night session`,
+    `Still going strong`,
+    `Night owl mode`,
+  ],
+  veryLate: [ // 12am–5am
+    `You should probably sleep`,
+    `Still up?`,
+    `The grind never stops`,
+    `Late night, huh`,
+  ],
+};
+
+function pickGreeting(h24) {
+  let pool;
+  if      (h24 >= 5  && h24 < 8)  pool = GREETINGS.earlyMorning;
+  else if (h24 >= 8  && h24 < 12) pool = GREETINGS.morning;
+  else if (h24 >= 12 && h24 < 17) pool = GREETINGS.afternoon;
+  else if (h24 >= 17 && h24 < 20) pool = GREETINGS.evening;
+  else if (h24 >= 20 && h24 < 24) pool = GREETINGS.lateNight;
+  else                             pool = GREETINGS.veryLate;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// Pick once per tab open so it doesn't change every 10s
+const SESSION_GREETING = pickGreeting(new Date().getHours());
+
 function updateClock() {
   const now = new Date();
   const h24 = now.getHours();
@@ -26,9 +81,7 @@ function updateClock() {
   const m = String(now.getMinutes()).padStart(2, '0');
   const ampm = h24 < 12 ? 'AM' : 'PM';
   document.getElementById('clock').innerHTML = `<span id="time-digits">${h12}:${m}</span><span id="ampm">${ampm}</span>`;
-
-  const greet = h24 < 12 ? 'Good morning' : h24 < 17 ? 'Good afternoon' : 'Good evening';
-  document.getElementById('greeting').textContent = greet;
+  document.getElementById('greeting').textContent = `${SESSION_GREETING}, ${USERNAME}.`;
 }
 updateClock();
 setInterval(updateClock, 10_000);
