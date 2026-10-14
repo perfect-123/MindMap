@@ -15,9 +15,6 @@ out/
 .DS_Store
 Thumbs.db
 
-# Personal learning notes
-LEARNING.md
-
 # Editor files
 .vscode/
 .idea/

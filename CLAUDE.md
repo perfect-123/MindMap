@@ -1,13 +1,20 @@
 # MindMap — Claude Context
 
 ## Project Overview
-MindMap is a multi-person collaborative project that visualizes brain health based on content consumption habits (learning vs entertainment ratio). It has three planned modules:
+MindMap is a multi-person collaborative project that visualizes brain health based on content consumption habits (learning vs entertainment ratio). Modules:
 
 | Module | Folder | Status |
 |---|---|---|
+| Landing page | `index.html` | Done — links to dashboard + AR |
 | AR Brain Viewer | `ar/` | Working (Person C) |
-| Dashboard | `dashboard/` | Not started |
-| Chrome Extension | `extension/` | Done (Person B) |
+| Dashboard | `dashboard/dashboard.html` | Working — single HTML page, Chart.js |
+| Chrome Extension | `extension/` | Done (Person B) — tracking + new tab page |
+
+### Shared constants — `extension/shared.js`
+Single source of truth for the Supabase URL/anon key, categories (key/label/colour), the learning-category set, and brain-state thresholds/colours. Exposes one global, `MINDMAP`, with helpers `normalizeCategory()`, `isLearning()` and `brainState(ratio)`.
+- It's a **classic script** (no `import`/`export`) so it works via `importScripts` (service worker), `<script src>` (extension pages, dashboard) and from the AR ES module (loaded with a plain `<script>` before the importmap).
+- It lives inside `extension/` because an unpacked extension can't load files outside its folder. Dashboard and AR load it as `../extension/shared.js`, so **the repo root must be served/deployed**, not individual folders.
+- Change categories, colours or thresholds here only. The Gemini prompt in `background.js` must still list the same category keys.
 
 ## Team Structure
 - **Person B** — Chrome extension + Supabase backend (`extension/`)
@@ -15,7 +22,7 @@ MindMap is a multi-person collaborative project that visualizes brain health bas
 - Other persons — dashboard
 
 ## Repository
-- GitHub: `https://github.com/prospersa1/MindMap`
+- GitHub: `https://github.com/perfect-123/mindmap` (originally `prospersa1/MindMap`)
 - Main branch: `main`
 - Person C's branch: `feature/person-c-ar`
 - Person B's branch: `chrome-extension` (merged to main 2026-03-28)
@@ -28,7 +35,7 @@ MindMap is a multi-person collaborative project that visualizes brain health bas
 ### File Structure
 ```
 ar/
-  index.html      — HTML structure only (46 lines)
+  ar.html         — HTML structure only (loads ../extension/shared.js, then app.js)
   style.css       — All CSS
   app.js          — All JavaScript (Three.js, Supabase, explode system)
   assets/
@@ -46,10 +53,12 @@ Displays a 3D brain model overlaid on the phone's front camera feed. The brain's
 | Sluggish | ≥15% learning | Brown `#887766` |
 | Rotting | <15% learning | Grey `#555555` |
 
-State is calculated from the `events` table in Supabase (last 7 days) using `ev.category` (set by Gemini via the extension). Learning + Productivity + News count toward the learning ratio.
+State is calculated from the `events` table in Supabase (last 7 days, weighted by `duration`) using `ev.category` (set by Gemini via the extension). Learning + Productivity + News count toward the learning ratio. Thresholds and UI colours come from `MINDMAP.STATES`; the colours in the table above are the 3D material colours, which stay in `ar/app.js` `STATES` along with emissive/pulse/particle tuning.
+
+With no data (or a failed fetch) the brain shows **Healthy** as a neutral state, the category breakdown is empty, the hint reads "No browsing data in the last 7 days", and tapping does not explode.
 
 ### Category System
-Categories mirror the extension's `VALID_CATEGORIES` (classified by Gemini):
+Defined in `MINDMAP.CATEGORIES` (`extension/shared.js`). Unknown values and `uncategorized` are treated as `other`:
 
 | Category | Brain state contribution | Colour |
 |---|---|---|
@@ -61,7 +70,7 @@ Categories mirror the extension's `VALID_CATEGORIES` (classified by Gemini):
 | other | entertainment | `#888780` grey |
 
 ### Tech Stack
-- **Three.js 0.150.0** — 3D rendering via unpkg CDN, ES module import map (importmap stays in index.html — cannot be in external JS)
+- **Three.js 0.150.0** — 3D rendering via unpkg CDN, ES module import map (importmap stays in ar.html — cannot be in external JS)
 - **GLTFLoader** — loads `brain.glb` 3D model
 - **getUserMedia** — native camera feed as `<video>` fullscreen background
 - **Three.js canvas** — overlaid with `alpha: true` (transparent background)
@@ -102,15 +111,19 @@ Categories mirror the extension's `VALID_CATEGORIES` (classified by Gemini):
 - [x] Tap-to-explode category breakdown working
 - [x] Categories aligned with extension's Gemini classification
 - [x] Merged main into feature/person-c-ar
-- [x] Split into index.html / style.css / app.js
+- [x] Split into ar.html / style.css / app.js
+- [x] Shared constants moved to `extension/shared.js`
 - [ ] Face tracking (brain follows face position) — not implemented, MindAR dropped
-- [ ] Merge to main pending
 
 ### How to Test
 ```bash
-# Drag ar/ folder to app.netlify.com/drop
-# Opens HTTPS URL — required for camera on mobile
-# Each drag creates a NEW URL — do not reuse old ones
+# Locally: serve the repo root, open /ar/ar.html
+python3 -m http.server 5173
+
+# On a phone (HTTPS required for camera): drag a FRESH git clone of the
+# repo root to app.netlify.com/drop, then open /ar/ar.html.
+# Don't drag a working copy containing extension/config.js (Gemini key).
+# Each drag creates a NEW URL — do not reuse old ones.
 ```
 
 ### Known Issues / History
@@ -133,8 +146,15 @@ Chrome extension that tracks browsing events and stores them in Supabase. Uses G
 - Valid categories: `learning`, `entertainment`, `social media`, `productivity`, `news`, `other`
 
 ### Key files
-- `background.js` — service worker: tab tracking, Supabase writes, Gemini classification
+- `background.js` — service worker: tab tracking, Supabase writes, Gemini classification, owns the Supabase session (answers `{type: 'getSession'}` messages)
+- `newtab.html` / `newtab.js` — new tab override: clock, greeting, daily Unsplash background, brain score widget. Gets its session from the service worker via `chrome.runtime.sendMessage`.
+- `shared.js` — shared constants (see top of this file)
+- `config.example.js` — copy to `config.js` (gitignored) and add `GEMINI_API_KEY`
 - `manifest.json` — MV3 manifest
+
+### Known issues
+- `newtab.js` `BASE_URL` is a hardcoded local `file://` path — dashboard/AR links only work on one machine.
+- Tab-tracking state in `background.js` is in memory and is lost when the MV3 service worker is suspended.
 
 ---
 
@@ -153,15 +173,16 @@ events (
 )
 ```
 
-### RLS Policy required
+### RLS Policy (current)
 ```sql
 CREATE POLICY "allow anon read"
 ON events FOR SELECT
 TO anon, authenticated
 USING (true);
 ```
+This lets any session read **all** users' events. The dashboard and AR also create a new anonymous user on every load, so their scores reflect everyone's data. Planned fix: `USING (auth.uid() = user_id)` plus passing the extension's session/user to the dashboard and AR.
 
 ## Supabase Credentials
 - URL: `https://sagbrkjfdqxqndrfekkp.supabase.co`
-- Anon key: hardcoded in `ar/app.js` (safe — anon key is public)
+- Anon key: in `extension/shared.js` (safe — anon key is public)
 - Service role key: never expose, never commit

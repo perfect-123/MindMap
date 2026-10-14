@@ -1,146 +1,75 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-// ─── Supabase config ─────────────────────────────────────────────────────────
-const SUPABASE_URL = 'https://sagbrkjfdqxqndrfekkp.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhZ2Jya2pmZHF4cW5kcmZla2twIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MTkzNjgsImV4cCI6MjA5MDI5NTM2OH0.R3X09rKRcUES59xnLP_dsQacq6b5gg2QiTIfbTOeTxI';
+// ─── Shared config (MINDMAP global from ../extension/shared.js) ──────────────
+const { SUPABASE_URL, SUPABASE_KEY: SUPABASE_ANON_KEY } = MINDMAP;
 
-// ─── Brain state definitions ──────────────────────────────────────────────────
+// ─── Brain state 3D look (labels, thresholds and UI colours come from MINDMAP) ─
 const STATES = {
   thriving: {
-    label: 'Thriving',
     color: 0x00ffcc,
     emissive: 0x00ffaa,
     emissiveBase: 0.8,
     pulseSpeed: 4.0,
     rotSpeed: 0.008,
-    badgeBg: '#00ffcc22',
-    badgeColor: '#00ffcc',
-    dotColor: '#00ffcc',
     glowOpacity: 0.35,
     particles: { count: 80, speed: 0.016, size: 0.018 },
   },
   healthy: {
-    label: 'Healthy',
     color: 0x88aaff,
     emissive: 0x4466ff,
     emissiveBase: 0.3,
     pulseSpeed: 1.0,
     rotSpeed: 0.004,
-    badgeBg: '#88aaff22',
-    badgeColor: '#88aaff',
-    dotColor: '#88aaff',
     glowOpacity: 0.18,
     particles: { count: 45, speed: 0.008, size: 0.013 },
   },
   sluggish: {
-    label: 'Sluggish',
     color: 0x887766,
     emissive: 0x332211,
     emissiveBase: 0.1,
     pulseSpeed: 0.4,
     rotSpeed: 0.002,
-    badgeBg: '#88776622',
-    badgeColor: '#aa9988',
-    dotColor: '#aa9988',
     glowOpacity: 0.07,
     particles: { count: 18, speed: 0.003, size: 0.009 },
   },
   rotting: {
-    label: 'Rotting',
     color: 0x555555,
     emissive: 0x000000,
     emissiveBase: 0.0,
     pulseSpeed: 0.0,
     rotSpeed: 0.001,
-    badgeBg: '#55555522',
-    badgeColor: '#888888',
-    dotColor: '#666666',
     glowOpacity: 0.02,
     particles: { count: 5, speed: 0.001, size: 0.007 },
   },
 };
 
-// ─── Category definitions — mirrors extension's VALID_CATEGORIES ──────────────
-const CATEGORY_DEFS = [
-  { name: 'Learning',      key: 'learning',      hex: '#1D9E75' },
-  { name: 'Entertainment', key: 'entertainment',  hex: '#D85A30' },
-  { name: 'Social Media',  key: 'social media',  hex: '#E040FB' },
-  { name: 'Productivity',  key: 'productivity',  hex: '#378ADD' },
-  { name: 'News',          key: 'news',          hex: '#EF9F27' },
-  { name: 'Other',         key: 'other',         hex: '#888780' },
-];
-
-// ─── Classification ───────────────────────────────────────────────────────────
-// Uses Gemini-classified category field. Learning + Productivity + News = learning.
-function classifyEvent(ev) {
-  const cat = (ev.category || '').toLowerCase().trim();
-  return (cat === 'learning' || cat === 'productivity' || cat === 'news') ? 'learning' : 'entertainment';
-}
-
+// ─── Brain state + category breakdown (last 7 days, weighted by duration) ─────
 function calcBrainState(events) {
-  if (!events || events.length === 0) return 'healthy';
   let learningSecs = 0, totalSecs = 0;
   for (const ev of events) {
     const secs = ev.duration || 0;
     totalSecs += secs;
-    if (classifyEvent(ev) === 'learning') learningSecs += secs;
+    if (MINDMAP.isLearning(ev.category)) learningSecs += secs;
   }
-  if (totalSecs === 0) {
-    // No duration data — use event count as weight
-    const learningCount = events.filter(ev => classifyEvent(ev) === 'learning').length;
-    learningSecs = learningCount;
-    totalSecs = events.length;
-  }
-  const ratio = learningSecs / totalSecs;
-  if (ratio >= 0.55) return 'thriving';
-  if (ratio >= 0.35) return 'healthy';
-  if (ratio >= 0.15) return 'sluggish';
-  return 'rotting';
+  if (totalSecs === 0) return 'healthy'; // neutral when there's no data
+  return MINDMAP.brainState(learningSecs / totalSecs).key;
 }
 
-// Returns an array of { name, percentage, hex } objects, sorted descending.
-// Filters out zero-time categories. Falls back to demo data if no events.
+// Returns [{ name, percentage, hex }] sorted descending, zero-time categories dropped.
 function calcCategoryBreakdown(events) {
-  if (!events || events.length === 0) {
-    return [
-      { name: 'Learning',      percentage: 38, hex: '#1D9E75' },
-      { name: 'Entertainment', percentage: 28, hex: '#D85A30' },
-      { name: 'Social Media',  percentage: 18, hex: '#E040FB' },
-      { name: 'Productivity',  percentage: 10, hex: '#378ADD' },
-      { name: 'Other',         percentage:  6, hex: '#888780' },
-    ];
-  }
-
   const buckets = {};
-  CATEGORY_DEFS.forEach(d => buckets[d.key] = 0);
+  MINDMAP.CATEGORY_KEYS.forEach(k => buckets[k] = 0);
   let totalSecs = 0;
-
   for (const ev of events) {
     const secs = ev.duration || 0;
     totalSecs += secs;
-    const cat = (ev.category || 'other').toLowerCase().trim();
-    if (buckets[cat] !== undefined) buckets[cat] += secs;
-    else buckets['other'] += secs;
+    buckets[MINDMAP.normalizeCategory(ev.category)] += secs;
   }
+  if (totalSecs === 0) return [];
 
-  if (totalSecs === 0) {
-    // No duration data — distribute by event count instead
-    const countBuckets = {};
-    CATEGORY_DEFS.forEach(d => countBuckets[d.key] = 0);
-    for (const ev of events) {
-      const cat = (ev.category || 'other').toLowerCase().trim();
-      if (countBuckets[cat] !== undefined) countBuckets[cat]++;
-      else countBuckets['other']++;
-    }
-    return CATEGORY_DEFS
-      .map(d => ({ name: d.name, percentage: Math.round((countBuckets[d.key] / events.length) * 100), hex: d.hex }))
-      .filter(e => e.percentage > 0)
-      .sort((a, b) => b.percentage - a.percentage);
-  }
-
-  return CATEGORY_DEFS
-    .map(d => ({ name: d.name, percentage: Math.round((buckets[d.key] / totalSecs) * 100), hex: d.hex }))
+  return MINDMAP.CATEGORIES
+    .map(c => ({ name: c.label, percentage: Math.round((buckets[c.key] / totalSecs) * 100), hex: c.color }))
     .filter(e => e.percentage > 0)
     .sort((a, b) => b.percentage - a.percentage);
 }
@@ -167,18 +96,13 @@ async function fetchBrainState() {
     });
     if (!res.ok) throw new Error(`Supabase ${res.status}`);
     const events = await res.json();
-    document.getElementById('debug-msg').textContent = `Supabase: ${events.length} events fetched`;
     return {
       state: calcBrainState(events),
       categories: calcCategoryBreakdown(events),
     };
   } catch (err) {
-    document.getElementById('debug-msg').textContent = `Supabase error: ${err.message}`;
-    console.warn('Supabase fetch failed, using fallback:', err);
-    return {
-      state: 'thriving',
-      categories: calcCategoryBreakdown([]),
-    };
+    console.warn('Supabase fetch failed:', err);
+    return { state: 'healthy', categories: [] };
   }
 }
 
@@ -194,9 +118,9 @@ const cameraVideo    = document.getElementById('camera-video');
 
 // ─── Badge ────────────────────────────────────────────────────────────────────
 function renderStateBadge(stateName) {
-  const s = STATES[stateName];
-  const html = `<span class="state-dot" style="background:${s.dotColor}"></span> ${s.label}`;
-  const style = `background:${s.badgeBg}; color:${s.badgeColor}; border:1px solid ${s.badgeColor}44;`;
+  const s = MINDMAP.STATES.find(st => st.key === stateName);
+  const html = `<span class="state-dot" style="background:${s.color}"></span> ${s.label}`;
+  const style = `background:${s.color}22; color:${s.color}; border:1px solid ${s.color}44;`;
   const el = document.getElementById('ar-state-badge');
   el.innerHTML = html;
   el.setAttribute('style', style);
@@ -321,6 +245,12 @@ let explodeSystem      = null;
 let categoryData       = [];
 let brainModelRoot     = null;
 let brainModelBaseScale = 1;
+
+function setReadyHint() {
+  arHint.textContent = categoryData.length
+    ? 'Tap brain to explore categories'
+    : 'No browsing data in the last 7 days';
+}
 
 function createExplodeSystem(categories) {
   destroyExplodeSystem();
@@ -541,7 +471,7 @@ function onTap(clientX, clientY) {
 }
 
 function triggerExplode() {
-  if (!explodeSystem || explodeSystem.isExploded) return;
+  if (!explodeSystem || explodeSystem.isExploded || !explodeSystem.fragments.length) return;
   explodeSystem.isExploded   = true;
   explodeSystem.isAnimating  = true;
   explodeSystem.brainOpacity = 1;
@@ -597,7 +527,7 @@ function triggerReassemble() {
   if (glowMesh)       { glowMesh.visible = true;       glowMesh.material.opacity = 0; }
   if (particleSystem) { particleSystem.visible = true; particleSystem.material.opacity = 0; }
 
-  arHint.textContent = 'Tap brain to explore categories';
+  setReadyHint();
 }
 
 function attachTapListeners(canvas) {
@@ -655,7 +585,7 @@ function initThree(canvas) {
       });
       brainModelRoot = model;
       brainGroup.add(model);
-      arHint.textContent = 'Tap brain to explore categories';
+      setReadyHint();
     },
     undefined,
     () => {
@@ -666,7 +596,7 @@ function initThree(canvas) {
       brainModelRoot  = sphere;
       brainModelBaseScale = 1;
       brainGroup.add(sphere);
-      arHint.textContent = 'Tap brain to explore categories';
+      setReadyHint();
     }
   );
 
@@ -790,6 +720,7 @@ startBtn.addEventListener('click', async () => {
     applyBrainState(state);
     createExplodeSystem(categories);
     categoryData = categories;
+    if (brainModelRoot) setReadyHint();
   });
 });
 

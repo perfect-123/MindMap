@@ -1,17 +1,7 @@
-importScripts("config.js"); // defines GEMINI_API_KEY
+importScripts("config.js", "shared.js"); // GEMINI_API_KEY, MINDMAP
 
-const SUPABASE_URL = "https://sagbrkjfdqxqndrfekkp.supabase.co";
-const SUPABASE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhZ2Jya2pmZHF4cW5kcmZla2twIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MTkzNjgsImV4cCI6MjA5MDI5NTM2OH0.R3X09rKRcUES59xnLP_dsQacq6b5gg2QiTIfbTOeTxI";
-// const GEMINI_API_KEY = "AIzaSyD2ABHUAiLD_Bld2Z9DEtHNtPojCbKjoOA";
-const VALID_CATEGORIES = [
-  "learning",
-  "entertainment",
-  "social media",
-  "productivity",
-  "news",
-  "other",
-];
+const { SUPABASE_URL, SUPABASE_KEY } = MINDMAP;
+const VALID_CATEGORIES = MINDMAP.CATEGORY_KEYS;
 
 // ─── In-memory state ────────────────────────────────────────────────────────
 let activeTabId = null;
@@ -65,6 +55,13 @@ async function getOrCreateSession() {
   await chrome.storage.local.set({ supabase_session: data });
   return data;
 }
+
+// New tab page asks for the session here instead of keeping its own copy
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg?.type !== "getSession") return;
+  getOrCreateSession().then(sendResponse, () => sendResponse(null));
+  return true; // keep the channel open for the async response
+});
 
 // ─── Local keyword fallback (used when Gemini API is unavailable) ────────────
 function classifyLocally(url, title) {
