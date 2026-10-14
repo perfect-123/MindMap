@@ -100,6 +100,29 @@ function classifyLocally(url, title) {
   return "other";
 }
 
+// ─── Category cache — skips Gemini (and the follow-up PATCH) on revisits ─────
+// Keyed by URL without #hash. Only Gemini answers are cached, never fallbacks.
+const CATEGORY_CACHE_MAX = 500;
+
+function cacheKey(url) {
+  return url.split("#")[0];
+}
+
+async function getCachedCategory(url) {
+  const { category_cache = {} } = await chrome.storage.local.get("category_cache");
+  return category_cache[cacheKey(url)] ?? null;
+}
+
+async function cacheCategory(url, category) {
+  const { category_cache = {} } = await chrome.storage.local.get("category_cache");
+  const key = cacheKey(url);
+  delete category_cache[key]; // re-insert so it counts as newest
+  category_cache[key] = category;
+  const keys = Object.keys(category_cache); // insertion order = oldest first
+  for (const k of keys.slice(0, keys.length - CATEGORY_CACHE_MAX)) delete category_cache[k];
+  await chrome.storage.local.set({ category_cache });
+}
+
 // ─── Gemini categorization ───────────────────────────────────────────────────
 async function classifyWithGemini(url, title) {
   try {
@@ -140,14 +163,16 @@ Reply with only the category word, nothing else.`,
       },
     );
 
+    if (!res.ok) throw new Error(`Gemini ${res.status}`);
     const data = await res.json();
     // gemini-2.5-flash is a thinking model: parts[0] is reasoning, the actual
     // answer is in the part without thought:true. Fall back to last part.
     const parts = data?.candidates?.[0]?.content?.parts ?? [];
     const answerPart = parts.find((p) => !p.thought) ?? parts[parts.length - 1];
     const raw = (answerPart?.text ?? "").trim().toLowerCase();
-    const match = VALID_CATEGORIES.find((c) => raw.includes(c));
-    return match ?? "other";
+    const category = VALID_CATEGORIES.find((c) => raw.includes(c)) ?? "other";
+    await cacheCategory(url, category);
+    return category;
   } catch (err) {
     console.warn("Gemini classification failed, using local fallback:", err);
     return classifyLocally(url, title);
@@ -172,6 +197,7 @@ async function createEvent(tab) {
   }
 
   const session = await getOrCreateSession();
+  const cachedCategory = await getCachedCategory(url);
 
   const res = await fetch(`${SUPABASE_URL}/rest/v1/events`, {
     method: "POST",
@@ -184,7 +210,7 @@ async function createEvent(tab) {
     body: JSON.stringify({
       url,
       title: tab.title,
-      category: "uncategorized", // placeholder — Gemini will update this shortly
+      category: cachedCategory ?? "uncategorized", // placeholder — Gemini will update this shortly
       duration: 0,
       domain,
       user_id: session.user?.id,
@@ -201,7 +227,7 @@ async function createEvent(tab) {
   console.log("Event created:", created);
 
   // Classify in the background — don't await so tab tracking isn't delayed
-  if (created?.id) {
+  if (created?.id && !cachedCategory) {
     classifyWithGemini(url, tab.title).then((category) => {
       patchEventCategory(created.id, category, session.access_token);
     });

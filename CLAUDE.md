@@ -10,6 +10,9 @@ MindMap is a multi-person collaborative project that visualizes brain health bas
 | Dashboard | `dashboard/dashboard.html` | Working — single HTML page, Chart.js |
 | Chrome Extension | `extension/` | Done (Person B) — tracking + new tab page |
 
+### Rule: keep the extension lightweight
+The extension runs during all of the user's browsing, so it must stay cheap. **Before building any feature, alert the user if it adds unnecessary compute or network work to normal browsing** — e.g. per-tab or per-page-load work, content scripts injected into pages, background timers/polling, extra API calls, or heavy rendering on the new tab page. Say what it costs and suggest a cheaper alternative (caching, batching, doing it only on demand). The dashboard and AR only run when opened, so this matters less there.
+
 ### Shared constants — `extension/shared.js`
 Single source of truth for the Supabase URL/anon key, categories (key/label/colour), the learning-category set, and brain-state thresholds/colours. Exposes one global, `MINDMAP`, with helpers `normalizeCategory()`, `isLearning()` and `brainState(ratio)`.
 - It's a **classic script** (no `import`/`export`) so it works via `importScripts` (service worker), `<script src>` (extension pages, dashboard) and from the AR ES module (loaded with a plain `<script>` before the importmap).
@@ -141,13 +144,14 @@ python3 -m http.server 5173
 Chrome extension that tracks browsing events and stores them in Supabase. Uses Gemini to classify each page into a category.
 
 ### Classification
-- Creates event immediately with `category: "uncategorized"`
-- Calls Gemini 2.5 Flash in background, then patches the category field
+- Checks the local category cache (`chrome.storage.local` `category_cache`, keyed by URL without `#hash`, max 500 entries, oldest dropped first). On a hit the event is inserted with that category and Gemini is not called.
+- On a miss: creates event immediately with `category: "uncategorized"`, calls Gemini 2.5 Flash in background, then patches the category field and caches it
+- Only Gemini answers are cached; if Gemini fails (network or non-2xx), the local keyword fallback is used and not cached
 - Valid categories: `learning`, `entertainment`, `social media`, `productivity`, `news`, `other`
 
 ### Key files
 - `background.js` — service worker: tab tracking, Supabase writes, Gemini classification, owns the Supabase session (answers `{type: 'getSession'}` messages)
-- `newtab.html` / `newtab.js` — new tab override: clock, greeting, daily Unsplash background, brain score widget. Gets its session from the service worker via `chrome.runtime.sendMessage`.
+- `newtab.html` / `newtab.js` — new tab override: clock, greeting, daily Unsplash background, brain score widget. The score's totals are cached in `chrome.storage.local` `brain_score_cache` for 5 minutes, so most new tabs make no request; on a miss it gets its session from the service worker via `chrome.runtime.sendMessage`.
 - `shared.js` — shared constants (see top of this file)
 - `config.example.js` — copy to `config.js` (gitignored) and add `GEMINI_API_KEY`
 - `manifest.json` — MV3 manifest

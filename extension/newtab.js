@@ -123,28 +123,43 @@ async function getSession() {
 }
 
 // ── Brain score ──────────────────────────────────────────────────────────────
+// Cached so most new tabs make no network request (and don't wake the service worker)
+const SCORE_CACHE_MS = 5 * 60 * 1000;
+
+async function fetchScoreTotals() {
+  const { brain_score_cache: cached } = await chrome.storage.local.get('brain_score_cache');
+  if (cached && Date.now() - cached.at < SCORE_CACHE_MS) return cached;
+
+  const session = await getSession();
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/events?select=category,duration&created_at=gte.${since}`,
+    {
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    }
+  );
+  if (!res.ok) throw new Error(`Supabase ${res.status}`);
+  const events = await res.json();
+
+  let total = 0, learning = 0;
+  for (const ev of events) {
+    const dur = ev.duration || 0;
+    total += dur;
+    if (MINDMAP.isLearning(ev.category)) learning += dur;
+  }
+
+  const totals = { at: Date.now(), total, learning };
+  await chrome.storage.local.set({ brain_score_cache: totals });
+  return totals;
+}
+
 async function loadBrainScore() {
   try {
-    const session = await getSession();
-    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/events?select=category,duration&created_at=gte.${since}`,
-      {
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      }
-    );
-    const events = await res.json();
-
-    let total = 0, learning = 0;
-    for (const ev of events) {
-      const dur = ev.duration || 0;
-      total += dur;
-      if (MINDMAP.isLearning(ev.category)) learning += dur;
-    }
+    const { total, learning } = await fetchScoreTotals();
 
     const ratio = total > 0 ? learning / total : 0;
     const pct = Math.round(ratio * 100);
