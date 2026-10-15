@@ -34,7 +34,7 @@ MindMap fixes that. It passively tracks your browsing in the background, uses AI
 ## Features
 
 - **Passive tracking** — runs in the background, zero manual input
-- **AI categorisation** — Gemini API classifies every page as Learning, Entertainment, Social Media, Productivity, News, or Other (with a local keyword fallback if Gemini is unavailable)
+- **Categorisation** — every page is labelled Learning, Entertainment, Social Media, Productivity, News, or Other by a free local keyword classifier. A daily server-side AI pass to refine these labels and summarise the previous day is planned
 - **Unlimited history** — no 7-day cap like native screen time
 - **Live AR brain** — 3D brain overlaid on your front camera; colour, particles, and pulse reflect your current brain state
 - **Tap-to-explode** — tap the brain to break it apart into floating category breakdown cards; tap again to reassemble
@@ -48,7 +48,7 @@ MindMap fixes that. It passively tracks your browsing in the background, uses AI
 | Layer | Technology |
 |---|---|
 | Chrome Extension | Manifest V3, Service Worker, new tab override |
-| AI Classification | Google Gemini API |
+| Classification | Local keyword rules (daily AI batch planned) |
 | Database & Auth | Supabase (PostgreSQL + RLS) |
 | AR / 3D | Three.js 0.150.0, GLTFLoader, getUserMedia |
 | Dashboard | Single HTML page, Chart.js (CDN) |
@@ -59,7 +59,7 @@ MindMap fixes that. It passively tracks your browsing in the background, uses AI
 ## How It Works
 
 1. You browse normally — the extension captures the URL, title, domain, and time spent
-2. Gemini classifies the session into a category in the background
+2. A local keyword classifier labels it instantly — no AI calls from the browser
 3. Data is stored in Supabase, scoped to your anonymous session
 4. The AR brain fetches the last 7 days of events and computes your brain state live
 5. The dashboard shows your full history with breakdowns and trends
@@ -72,9 +72,8 @@ MindMap fixes that. It passively tracks your browsing in the background, uses AI
 index.html               → Landing page linking to the dashboard and AR
 /extension
   shared.js              → Shared constants (Supabase config, categories, brain states)
-  background.js          → Service worker: tab tracking, Supabase writes, Gemini classification
+  background.js          → Service worker: tab tracking, Supabase writes, keyword classification
   newtab.html / .js      → New tab page
-  config.example.js      → Template for config.js (Gemini key, gitignored)
 /dashboard/dashboard.html → Analytics & charts
 /ar                      → AR brain experience (Three.js + getUserMedia)
 ```
@@ -92,11 +91,7 @@ cd MindMap
 ```
 
 ### 2. Set up the Chrome Extension
-```bash
-cp extension/config.example.js extension/config.js
-# then edit extension/config.js and paste your Gemini API key
-```
-Then go to `chrome://extensions` → Enable Developer Mode → **Load unpacked** → select the `/extension` folder.
+Go to `chrome://extensions` → Enable Developer Mode → **Load unpacked** → select the `/extension` folder.
 
 ### 3. Run the Dashboard
 Serve the **repo root** (the dashboard loads `../extension/shared.js`):
@@ -108,15 +103,13 @@ Then open http://localhost:5173/dashboard/dashboard.html.
 ### 4. Test the AR Brain
 The AR page loads `../extension/shared.js`, so deploy the **repo root**, not just `/ar`. HTTPS is required for camera access on mobile. Either connect the GitHub repo to Netlify, or drag a **fresh `git clone`** to [app.netlify.com/drop](https://app.netlify.com/drop) and open `/ar/ar.html` on your phone.
 
-> **Warning:** Don't drag your working copy if it contains `extension/config.js` — that would publish your Gemini key. A fresh clone never has it.
->
 > Each Netlify Drop creates a new URL — do not reuse old ones.
 
 ---
 
 ## Security
 
-- The Gemini key lives in a gitignored `extension/config.js` — it is never committed
+- The extension holds no AI API keys — classification is local
 - Supabase uses anonymous session auth with RLS policies — no login required, no personal data exposed
 - The Supabase anon key is safe to expose publicly (it is scoped by RLS)
 
@@ -144,7 +137,7 @@ The AR page loads `../extension/shared.js`, so deploy the **repo root**, not jus
 In the spirit of MLH transparency rules, we used the following AI tools during the hackathon:
 
 - **Claude (Anthropic)** — code assistance, debugging, architecture decisions
-- **Google Gemini API** — runtime content classification (core feature)
+- **Google Gemini API** — page classification (used during the hackathon; removed from the extension in favour of a planned daily server-side batch)
 
 ---
 

@@ -17,7 +17,7 @@ The extension runs during all of the user's browsing, so it must stay cheap. **B
 Single source of truth for the Supabase URL/anon key, categories (key/label/colour), the learning-category set, and brain-state thresholds/colours. Exposes one global, `MINDMAP`, with helpers `normalizeCategory()`, `isLearning()` and `brainState(ratio)`.
 - It's a **classic script** (no `import`/`export`) so it works via `importScripts` (service worker), `<script src>` (extension pages, dashboard) and from the AR ES module (loaded with a plain `<script>` before the importmap).
 - It lives inside `extension/` because an unpacked extension can't load files outside its folder. Dashboard and AR load it as `../extension/shared.js`, so **the repo root must be served/deployed**, not individual folders.
-- Change categories, colours or thresholds here only. The Gemini prompt in `background.js` must still list the same category keys.
+- Change categories, colours or thresholds here only. `classifyLocally()` in `background.js` must return only these keys.
 
 ## Team Structure
 - **Person B** — Chrome extension + Supabase backend (`extension/`)
@@ -56,7 +56,7 @@ Displays a 3D brain model overlaid on the phone's front camera feed. The brain's
 | Sluggish | ≥15% learning | Brown `#887766` |
 | Rotting | <15% learning | Grey `#555555` |
 
-State is calculated from the `events` table in Supabase (last 7 days, weighted by `duration`) using `ev.category` (set by Gemini via the extension). Learning + Productivity + News count toward the learning ratio. Thresholds and UI colours come from `MINDMAP.STATES`; the colours in the table above are the 3D material colours, which stay in `ar/app.js` `STATES` along with emissive/pulse/particle tuning.
+State is calculated from the `events` table in Supabase (last 7 days, weighted by `duration`) using `ev.category` (set by the extension's keyword classifier). Learning + Productivity + News count toward the learning ratio. Thresholds and UI colours come from `MINDMAP.STATES`; the colours in the table above are the 3D material colours, which stay in `ar/app.js` `STATES` along with emissive/pulse/particle tuning.
 
 With no data (or a failed fetch) the brain shows **Healthy** as a neutral state, the category breakdown is empty, the hint reads "No browsing data in the last 7 days", and tapping does not explode.
 
@@ -86,7 +86,7 @@ Defined in `MINDMAP.CATEGORIES` (`extension/shared.js`). Unknown values and `unc
 - **Camera overlay approach**: `<video>` fullscreen behind a transparent Three.js `<canvas>`. Simple, reliable, works on all mobile browsers.
 - **GLTFLoader fallback**: If `brain.glb` fails to load, a glowing sphere is shown.
 - **Supabase auth**: Must call `/auth/v1/signup` (anon session) first to get an `access_token` — the anon key alone is blocked by RLS.
-- **Category classification**: AR reads `ev.category` from Supabase directly (set by Gemini in the extension). No keyword matching in AR.
+- **Category classification**: AR reads `ev.category` from Supabase directly (set by the extension). No classification logic in AR.
 - **brainModelBaseScale**: Brain GLTF is scaled to `0.6 / maxDim` at load time. Cached as `brainModelBaseScale` and used by the explode animation to restore exact original size on reassembly.
 - **`crossorigin="anonymous"`**: Do NOT add this to script tags — causes CORS failures on Safari.
 
@@ -112,7 +112,7 @@ Defined in `MINDMAP.CATEGORIES` (`extension/shared.js`). Unknown values and `unc
 - [x] Brain states + glow + particles working
 - [x] Supabase live data wired up (anon session auth)
 - [x] Tap-to-explode category breakdown working
-- [x] Categories aligned with extension's Gemini classification
+- [x] Categories aligned with the extension's categories
 - [x] Merged main into feature/person-c-ar
 - [x] Split into ar.html / style.css / app.js
 - [x] Shared constants moved to `extension/shared.js`
@@ -125,7 +125,6 @@ python3 -m http.server 5173
 
 # On a phone (HTTPS required for camera): drag a FRESH git clone of the
 # repo root to app.netlify.com/drop, then open /ar/ar.html.
-# Don't drag a working copy containing extension/config.js (Gemini key).
 # Each drag creates a NEW URL — do not reuse old ones.
 ```
 
@@ -141,19 +140,19 @@ python3 -m http.server 5173
 ## Extension Module (`extension/`)
 
 ### What it does
-Chrome extension that tracks browsing events and stores them in Supabase. Uses Gemini to classify each page into a category.
+Chrome extension that tracks browsing events and stores them in Supabase, labelling each page with a free local keyword classifier. It makes **no AI calls**.
 
 ### Classification
-- Checks the local category cache (`chrome.storage.local` `category_cache`, keyed by URL without `#hash`, max 500 entries, oldest dropped first). On a hit the event is inserted with that category and Gemini is not called.
-- On a miss: creates event immediately with `category: "uncategorized"`, calls Gemini 2.5 Flash in background, then patches the category field and caches it
-- Only Gemini answers are cached; if Gemini fails (network or non-2xx), the local keyword fallback is used and not cached
+- `classifyLocally()` in `background.js` labels each event from domain/title regexes at insert time — one Supabase write per page load, nothing else
+- These labels are **provisional**. Planned: a daily Supabase Edge Function that reclassifies the previous day's events with AI (deduped by URL, one batched call, key kept in Supabase secrets), writes the categories back, and stores a per-user daily summary for the new tab. It should reclassify all of that day's events — there is no "provisional" flag column. Triggered lazily by the first new tab of the day rather than a fixed cron.
+- The old per-page Gemini prompt (useful category rules for the batch) is in `extension/background.js` at commit `bcb6586`
+- Per-user summaries depend on fixing RLS first (see Supabase section)
 - Valid categories: `learning`, `entertainment`, `social media`, `productivity`, `news`, `other`
 
 ### Key files
-- `background.js` — service worker: tab tracking, Supabase writes, Gemini classification, owns the Supabase session (answers `{type: 'getSession'}` messages)
+- `background.js` — service worker: tab tracking, Supabase writes, keyword classification, owns the Supabase session (answers `{type: 'getSession'}` messages)
 - `newtab.html` / `newtab.js` — new tab override: clock, greeting, daily Unsplash background, brain score widget. The score's totals are cached in `chrome.storage.local` `brain_score_cache` for 5 minutes, so most new tabs make no request; on a miss it gets its session from the service worker via `chrome.runtime.sendMessage`.
 - `shared.js` — shared constants (see top of this file)
-- `config.example.js` — copy to `config.js` (gitignored) and add `GEMINI_API_KEY`
 - `manifest.json` — MV3 manifest
 
 ### Known issues
@@ -169,7 +168,7 @@ events (
   url           TEXT,
   title         TEXT,
   domain        TEXT,
-  category      TEXT,    -- set by Gemini (learning/entertainment/social media/productivity/news/other)
+  category      TEXT,    -- learning/entertainment/social media/productivity/news/other (keyword-classified by the extension)
   duration      INT,     -- seconds (NOT minutes)
   created_at    TIMESTAMPTZ,
   ended_at      TIMESTAMPTZ,
