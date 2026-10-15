@@ -4,8 +4,7 @@
   "version": "1.0",
   "permissions": ["tabs", "storage", "windows", "idle"],
   "host_permissions": [
-    "https://api.unsplash.com/*",
-    "https://sagbrkjfdqxqndrfekkp.supabase.co/*"
+    "https://api.unsplash.com/*"
   ],
   "background": {
     "service_worker": "background.js"

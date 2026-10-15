@@ -1,10 +1,7 @@
 // ── Config ──────────────────────────────────────────────────────────────────
 const UNSPLASH_ACCESS_KEY = 'oOEF298YzIVrddPb5UuQVpT9tSIqVggfaLnlBdU6W1Q';
 
-// ── App URLs ─────────────────────────────────────────────────────────────────
-const BASE_URL = 'file:///Users/perfectackah/MindMap-1'; // AR only — removed in phase 3
 const DASHBOARD_URL = chrome.runtime.getURL('dashboard.html');
-const AR_URL = `${BASE_URL}/ar/ar.html`;
 
 // ── Clock ────────────────────────────────────────────────────────────────────
 const USERNAME = 'User1'; // swap out once auth is implemented
@@ -160,9 +157,6 @@ async function loadBrainScore() {
 // ── Init ─────────────────────────────────────────────────────────────────────
 document.getElementById('brain-widget').addEventListener('click', () => {
   chrome.tabs.create({ url: DASHBOARD_URL });
-});
-document.getElementById('ar-widget').addEventListener('click', () => {
-  chrome.tabs.create({ url: AR_URL });
 });
 loadBackground();
 loadBrainScore();

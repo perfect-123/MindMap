@@ -1,17 +1,11 @@
-// Shared constants for the extension, dashboard and AR.
-// Plain classic script (no import/export) so it loads everywhere:
-//   service worker → importScripts('shared.js')
+// Shared constants for the service worker and the extension pages.
+// Plain classic script (no import/export):
+//   service worker  → importScripts('shared.js')
 //   extension pages → <script src="shared.js">
-//   dashboard / AR  → <script src="../extension/shared.js">
 // Everything lives on one global, MINDMAP.
 
 const MINDMAP = (() => {
-  const SUPABASE_URL = 'https://sagbrkjfdqxqndrfekkp.supabase.co';
-  // Anon key is public by design — access is scoped by RLS
-  const SUPABASE_KEY =
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhZ2Jya2pmZHF4cW5kcmZla2twIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MTkzNjgsImV4cCI6MjA5MDI5NTM2OH0.R3X09rKRcUES59xnLP_dsQacq6b5gg2QiTIfbTOeTxI';
-
-  // Mirrors the categories Gemini is asked to choose from in background.js
+  // classifyLocally() in background.js must return only these keys
   const CATEGORIES = [
     { key: 'learning',      label: 'Learning',      color: '#1D9E75' },
     { key: 'entertainment', label: 'Entertainment', color: '#D85A30' },
@@ -49,7 +43,6 @@ const MINDMAP = (() => {
   }
 
   return {
-    SUPABASE_URL, SUPABASE_KEY,
     CATEGORIES, CATEGORY_KEYS, LEARNING_CATEGORIES, STATES,
     normalizeCategory, isLearning, brainState,
   };

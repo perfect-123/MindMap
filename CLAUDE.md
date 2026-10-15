@@ -1,69 +1,47 @@
 # MindMap — Claude Context
 
 ## Project Overview
-MindMap is a multi-person collaborative project that visualizes brain health based on content consumption habits (learning vs entertainment ratio). Modules:
+MindMap is a Chrome extension that shows how you spend your time online: how much active browsing time goes to learning vs entertainment. It is **local-only** — no backend, no accounts, no network calls except the new tab's Unsplash photo.
 
-| Module | Folder | Status |
+| Part | Files | What it does |
 |---|---|---|
-| Landing page | `index.html` | Done — links to dashboard + AR |
-| AR Brain Viewer | `ar/` | Working (Person C) |
-| Dashboard | `extension/dashboard.html` | Working — extension page, local data. (Old `dashboard/` reads Supabase; deleted in phase 3) |
-| Chrome Extension | `extension/` | Done (Person B) — tracking + new tab page |
+| Tracker | `extension/tracker.js` + `background.js` | Counts active time per site/category, stores daily totals locally |
+| New tab | `extension/newtab.html` / `newtab.js` | Clock, greeting, daily photo, 7-day brain score. Planned to grow into a "good morning"-style page |
+| Dashboard | `extension/dashboard.html` / `dashboard.js` | Category breakdowns, weekly trends, time-of-day heatmap, top sites, streak |
+
+This repo is a fork of `prospersa1/MindMap` (a hackathon project). The fork dropped Supabase, the AR brain viewer, the landing page and Gemini classification — see git history before commit "Phase 3" for those.
 
 ### Rule: keep the extension lightweight
-The extension runs during all of the user's browsing, so it must stay cheap. **Before building any feature, alert the user if it adds unnecessary compute or network work to normal browsing** — e.g. per-tab or per-page-load work, content scripts injected into pages, background timers/polling, extra API calls, or heavy rendering on the new tab page. Say what it costs and suggest a cheaper alternative (caching, batching, doing it only on demand). The dashboard and AR only run when opened, so this matters less there.
+The extension runs during all of the user's browsing, so it must stay cheap. **Before building any feature, alert the user if it adds unnecessary compute or network work to normal browsing** — e.g. per-tab or per-page-load work, content scripts injected into pages, background timers/polling, extra API calls, or heavy rendering on the new tab page. Say what it costs and suggest a cheaper alternative (caching, batching, doing it only on demand). The dashboard only runs when opened, so this matters less there.
 
-### Shared constants — `extension/shared.js`
-Single source of truth for the Supabase URL/anon key, categories (key/label/colour), the learning-category set, and brain-state thresholds/colours. Exposes one global, `MINDMAP`, with helpers `normalizeCategory()`, `isLearning()` and `brainState(ratio)`.
-- It's a **classic script** (no `import`/`export`) so it works via `importScripts` (service worker), `<script src>` (extension pages, dashboard) and from the AR ES module (loaded with a plain `<script>` before the importmap).
-- It lives inside `extension/` because an unpacked extension can't load files outside its folder. Dashboard and AR load it as `../extension/shared.js`, so **the repo root must be served/deployed**, not individual folders.
-- Change categories, colours or thresholds here only. `classifyLocally()` in `background.js` must return only these keys.
+## Files (`extension/`)
+- `manifest.json` — MV3. Permissions: `tabs`, `storage`, `windows`, `idle`; host permission only for `api.unsplash.com`.
+- `background.js` — service worker entry: loads `shared.js` + `tracker.js`, defines `classifyLocally()`.
+- `tracker.js` — the tracker (below).
+- `shared.js` — shared constants (below).
+- `newtab.html` / `newtab.js` — new tab override. Score = last 7 calendar days of local totals. Clicking it opens `chrome.runtime.getURL('dashboard.html')`. Unsplash photo cached once per day in `chrome.storage.local` `unsplash_cache`.
+- `dashboard.html` / `dashboard.js` — reads the last 30 days of local totals and turns each bucket into a row `{ domain, cat, dur, dk, hour }`, the shape the chart renderers use.
+- `vendor/chart.umd.js` — Chart.js 4.4.3 from npm, unmodified.
 
-## Team Structure
-- **Person B** — Chrome extension + Supabase backend (`extension/`)
-- **Person C** — AR experience (`ar/`) — this is Derrick's branch
-- Other persons — dashboard
+**Extension page CSP:** no inline `<script>` and no CDN scripts — all JS must be in files in the extension. Stylesheets/fonts from the network are allowed (the dashboard uses Google Fonts).
 
-## Repository
-- GitHub: `https://github.com/perfect-123/mindmap` (originally `prospersa1/MindMap`)
-- Main branch: `main`
-- Person C's branch: `feature/person-c-ar`
-- Person B's branch: `chrome-extension` (merged to main 2026-03-28)
-- Derrick does NOT have admin access to the repo (cannot enable GitHub Pages)
+## Tracker (`tracker.js`)
+- Counts active seconds only while a Chrome window is focused, the active tab is http(s), and the user isn't idle (`chrome.idle`, 300 s). An **audible** tab keeps counting while idle (videos). When idle fires, the 300 s of no input is not counted.
+- Storage: `chrome.storage.local` key `day:YYYY-MM-DD` (local date) → `{ "hour|domain|category": seconds }`. Domain has `www.` stripped; category is from `classifyLocally()` at record time. Segments are split at hour boundaries.
+- The open segment is in `chrome.storage.session` (`tracker_segment`), so it survives service-worker suspension. **No timers** — each tab/focus/idle/title/audible event closes and credits the segment. Events are serialised through a promise queue.
+- Safety cap: one segment credits at most 2 h. Days older than 365 are pruned on browser startup.
+- If Chrome crashes, the open segment since the last event is lost.
 
----
+## Classification
+- `classifyLocally(url, title)` in `background.js`: domain regexes first, then title keywords. Free, instant, no network.
+- Mixed sites (e.g. YouTube) only get a non-default label if the title has words like "tutorial"; the user can't correct labels yet.
+- Planned (phase 4): per-site category overrides set in the dashboard, stored as a domain → category map and applied when data is read, so history updates instantly.
 
-## AR Module
+## Shared constants (`shared.js`)
+Classic script (no `import`/`export`) loaded via `importScripts` in the service worker and `<script src>` in pages. Exposes one global, `MINDMAP`: `CATEGORIES` (key/label/colour), `CATEGORY_KEYS`, `LEARNING_CATEGORIES`, `STATES`, and helpers `normalizeCategory()`, `isLearning()`, `brainState(ratio)`. Change categories, colours or thresholds here only; `classifyLocally()` must return only these keys.
 
-### File Structure
-```
-ar/
-  ar.html         — HTML structure only (loads ../extension/shared.js, then app.js)
-  style.css       — All CSS
-  app.js          — All JavaScript (Three.js, Supabase, explode system)
-  assets/
-    brain.glb     — 3D brain model (~5MB)
-```
-
-### What it does
-Displays a 3D brain model overlaid on the phone's front camera feed. The brain's colour, glow, pulse speed, and orbiting particles reflect the user's brain health state based on the last 7 days of browsing events pulled from Supabase. Tapping the brain explodes it into floating category breakdown labels; tapping again reassembles it.
-
-### Brain States
-| State | Condition | Color |
-|---|---|---|
-| Thriving | ≥55% learning | Cyan `#00ffcc` |
-| Healthy | ≥35% learning | Blue `#88aaff` |
-| Sluggish | ≥15% learning | Brown `#887766` |
-| Rotting | <15% learning | Grey `#555555` |
-
-State is calculated from the `events` table in Supabase (last 7 days, weighted by `duration`) using `ev.category` (set by the extension's keyword classifier). Learning + Productivity + News count toward the learning ratio. Thresholds and UI colours come from `MINDMAP.STATES`; the colours in the table above are the 3D material colours, which stay in `ar/app.js` `STATES` along with emissive/pulse/particle tuning.
-
-With no data (or a failed fetch) the brain shows **Healthy** as a neutral state, the category breakdown is empty, the hint reads "No browsing data in the last 7 days", and tapping does not explode.
-
-### Category System
-Defined in `MINDMAP.CATEGORIES` (`extension/shared.js`). Unknown values and `uncategorized` are treated as `other`:
-
-| Category | Brain state contribution | Colour |
+### Categories
+| Category | Counts as | Colour |
 |---|---|---|
 | learning | learning | `#1D9E75` teal |
 | entertainment | entertainment | `#D85A30` coral |
@@ -72,132 +50,18 @@ Defined in `MINDMAP.CATEGORIES` (`extension/shared.js`). Unknown values and `unc
 | news | **learning** | `#EF9F27` amber |
 | other | entertainment | `#888780` grey |
 
-### Tech Stack
-- **Three.js 0.150.0** — 3D rendering via unpkg CDN, ES module import map (importmap stays in ar.html — cannot be in external JS)
-- **GLTFLoader** — loads `brain.glb` 3D model
-- **getUserMedia** — native camera feed as `<video>` fullscreen background
-- **Three.js canvas** — overlaid with `alpha: true` (transparent background)
-- **Supabase** — PostgreSQL backend, anon auth session for RLS access
-- No build system — CDN imports only
+### Brain states (by learning share of active time)
+| State | Condition | Colour |
+|---|---|---|
+| Thriving | ≥55% | `#00ffcc` |
+| Healthy | ≥35% | `#88aaff` |
+| Sluggish | ≥15% | `#aa9988` |
+| Rotting | <15% | `#888888` |
 
-### Key Architecture Decisions
-- **Why not MindAR**: MindAR 1.2.2 crashes on iPhone Safari — TF.js/WASM bundle fails to execute (window.MINDAR.FACE undefined). Replaced with plain getUserMedia + Three.js overlay.
-- **Why not WebXR**: iOS doesn't support `immersive-ar` session mode.
-- **Camera overlay approach**: `<video>` fullscreen behind a transparent Three.js `<canvas>`. Simple, reliable, works on all mobile browsers.
-- **GLTFLoader fallback**: If `brain.glb` fails to load, a glowing sphere is shown.
-- **Supabase auth**: Must call `/auth/v1/signup` (anon session) first to get an `access_token` — the anon key alone is blocked by RLS.
-- **Category classification**: AR reads `ev.category` from Supabase directly (set by the extension). No classification logic in AR.
-- **brainModelBaseScale**: Brain GLTF is scaled to `0.6 / maxDim` at load time. Cached as `brainModelBaseScale` and used by the explode animation to restore exact original size on reassembly.
-- **`crossorigin="anonymous"`**: Do NOT add this to script tags — causes CORS failures on Safari.
+Known weakness: counting productivity and news as "learning", and the thresholds themselves, are arbitrary.
 
-### Visual Effects
-- **Glow sphere**: Slightly larger BackSide additive-blended sphere around brain. Opacity varies by state.
-- **Orbiting particles**: THREE.Points cloud rotated each frame. Count/speed/size varies dramatically by state (80 fast for Thriving → 5 barely-moving for Rotting).
-- **Brain pulse**: emissiveIntensity + pointLight intensity oscillate via sine wave. Speed varies by state.
+## Testing
+There is no build step or test suite. To try it: `chrome://extensions` → Developer mode → Load unpacked → `extension/`, then reload after changes. The service worker's console is under "Inspect views" on that page; stored totals can be checked there with `chrome.storage.local.get(null)`.
 
-### Tap-to-Explode Feature
-- Tap brain → shockwave sphere expands, brain dissolves (scale burst to 1.8×, fade ~200ms), category labels spring out with staggered cascade
-- Fragment labels: THREE.PlaneGeometry with CanvasTexture pill badges (256×128px)
-- Fragments: elliptical arrangement (rx=0.27, ry=0.44) centred on brain — portrait-safe, always on screen
-- Spring physics: stiffness 180, damping 12 + initial velocity burst (4–6.5 units/sec)
-- Fragments spin during flight, snap to billboard (face camera) when settled
-- Scale in with easeOutBack overshoot; idle bob amplitude 0.008 units
-- `brainGroup.rotation` reset to 0 on explode — required for billboard math to work correctly
-- Tap anywhere → fragments lerp back (dt-based, frame-rate independent), brain fades in from 0.7× scale
-- AR state badge fades out during exploded state, fades back in on reassembly
-- Debounce: 800ms between taps
-
-### Current Status (as of 2026-03-28)
-- [x] Camera AR working on iPhone Safari
-- [x] Brain states + glow + particles working
-- [x] Supabase live data wired up (anon session auth)
-- [x] Tap-to-explode category breakdown working
-- [x] Categories aligned with the extension's categories
-- [x] Merged main into feature/person-c-ar
-- [x] Split into ar.html / style.css / app.js
-- [x] Shared constants moved to `extension/shared.js`
-- [ ] Face tracking (brain follows face position) — not implemented, MindAR dropped
-
-### How to Test
-```bash
-# Locally: serve the repo root, open /ar/ar.html
-python3 -m http.server 5173
-
-# On a phone (HTTPS required for camera): drag a FRESH git clone of the
-# repo root to app.netlify.com/drop, then open /ar/ar.html.
-# Each drag creates a NEW URL — do not reuse old ones.
-```
-
-### Known Issues / History
-- MindAR dropped — crashes on iOS Safari (TF.js WASM execution error, window.MINDAR.FACE undefined)
-- WebXR dropped — iOS doesn't support immersive-ar
-- `crossorigin="anonymous"` on script tags causes CORS failures on Safari — do not add it
-- Netlify Drop creates a NEW URL each drag — do not reuse old URLs
-- Three.js must stay at 0.150.0 (if MindAR is ever re-introduced, it bundles r150 internally)
-
----
-
-## Extension Module (`extension/`)
-
-### What it does
-Chrome extension that tracks browsing events and stores them in Supabase, labelling each page with a free local keyword classifier. It makes **no AI calls**.
-
-### Classification
-- `classifyLocally()` in `background.js` labels each event from domain/title regexes at insert time — one Supabase write per page load, nothing else
-- These labels are **provisional**. Planned: a daily Supabase Edge Function that reclassifies the previous day's events with AI (deduped by URL, one batched call, key kept in Supabase secrets), writes the categories back, and stores a per-user daily summary for the new tab. It should reclassify all of that day's events — there is no "provisional" flag column. Triggered lazily by the first new tab of the day rather than a fixed cron.
-- The old per-page Gemini prompt (useful category rules for the batch) is in `extension/background.js` at commit `bcb6586`
-- Per-user summaries depend on fixing RLS first (see Supabase section)
-- Valid categories: `learning`, `entertainment`, `social media`, `productivity`, `news`, `other`
-
-### Local tracker (`tracker.js`) — migration phases 1–2 of 4 done
-We're moving to a **local-only** design (no Supabase). Plan: (1) record locally alongside Supabase ✓; (2) new tab and dashboard (moved into the extension, Chart.js bundled locally) read local data ✓; (3) delete Supabase, AR, root `index.html`, old `dashboard/`; (4) per-site category overrides in the dashboard. Each phase must leave the app working.
-
-- Loaded by `background.js` via `importScripts`; uses its `classifyLocally()`. Still runs alongside the Supabase writes until phase 3. The new tab and the extension dashboard read its data; the old root `dashboard/` and `ar/` still read Supabase.
-- Counts active seconds only while a Chrome window is focused, the active tab is http(s), and the user isn't idle (`chrome.idle`, 300 s). An **audible** tab keeps counting while idle (videos). When idle fires, the 300 s of no input is not counted.
-- Storage: `chrome.storage.local` key `day:YYYY-MM-DD` (local date) → `{ "hour|domain|category": seconds }`. Domain has `www.` stripped. Segments are split at hour boundaries.
-- The open segment is in `chrome.storage.session` (`tracker_segment`), so it survives service-worker suspension. **No timers** — each tab/focus/idle/title/audible event closes and credits the segment. Events are serialised through a promise queue.
-- Safety cap: one segment credits at most 2 h. Days older than 365 are pruned on browser startup.
-- If Chrome crashes, the open segment since the last event is lost.
-
-### Key files
-- `background.js` — service worker: tab tracking, Supabase writes, keyword classification, owns the Supabase session (answers `{type: 'getSession'}` messages)
-- `newtab.html` / `newtab.js` — new tab override: clock, greeting, daily Unsplash background, brain score widget. The score is computed from the last 7 calendar days of local `day:` totals (no network). Clicking it opens the extension dashboard via `chrome.runtime.getURL('dashboard.html')`. Planned to grow into a "good morning"-style page.
-- `dashboard.html` / `dashboard.js` — the dashboard, as an extension page. Reads the last 30 days of local `day:` totals and turns each `hour|domain|category` bucket into a row `{ domain, cat, dur, dk, hour }`, the shape the chart renderers use. Extension pages block inline and CDN scripts, so all JS is in files and Chart.js 4.4.3 is bundled at `vendor/chart.umd.js` (from npm, unmodified). Google Fonts CSS still loads from the network (styles are allowed).
-- `tracker.js` — local active-time tracker (see above)
-- `shared.js` — shared constants (see top of this file)
-- `manifest.json` — MV3 manifest
-
-### Known issues
-- `newtab.js` `BASE_URL` is a hardcoded local `file://` path, now used only by the AR link (removed in phase 3).
-- The Supabase tab-tracking state in `background.js` is in memory and is lost when the MV3 service worker is suspended (fixed in `tracker.js`; the Supabase path is being removed).
-
----
-
-## Supabase Schema
-```sql
-events (
-  id,
-  url           TEXT,
-  title         TEXT,
-  domain        TEXT,
-  category      TEXT,    -- learning/entertainment/social media/productivity/news/other (keyword-classified by the extension)
-  duration      INT,     -- seconds (NOT minutes)
-  created_at    TIMESTAMPTZ,
-  ended_at      TIMESTAMPTZ,
-  user_id       UUID
-)
-```
-
-### RLS Policy (current)
-```sql
-CREATE POLICY "allow anon read"
-ON events FOR SELECT
-TO anon, authenticated
-USING (true);
-```
-This lets any session read **all** users' events. The dashboard and AR also create a new anonymous user on every load, so their scores reflect everyone's data. Planned fix: `USING (auth.uid() = user_id)` plus passing the extension's session/user to the dashboard and AR.
-
-## Supabase Credentials
-- URL: `https://sagbrkjfdqxqndrfekkp.supabase.co`
-- Anon key: in `extension/shared.js` (safe — anon key is public)
-- Service role key: never expose, never commit
+## Known issues
+- `newtab.js` has a hardcoded `USERNAME = 'User1'` and a hardcoded Unsplash access key.
