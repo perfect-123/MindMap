@@ -19,11 +19,19 @@ The extension runs during all of the user's browsing, so it must stay cheap. **B
 - `background.js` — service worker entry: loads `shared.js` + `tracker.js`, defines `classifyLocally()`.
 - `tracker.js` — the tracker (below).
 - `shared.js` — shared constants (below).
-- `newtab.html` / `newtab.js` — new tab override. Score = last 7 calendar days of local totals (`MINDMAP.readRows(7)`). Clicking it opens `chrome.runtime.getURL('dashboard.html')`. Unsplash photo cached once per day in `chrome.storage.local` `unsplash_cache`.
+- `newtab.html` / `newtab.js` — new tab override: ghosted clock, greeting, blurred daily photo, and the 7-day score as a small cover tile tinted by brain state (`MINDMAP.readRows(7)`). Clicking the tile opens `chrome.runtime.getURL('dashboard.html')`. Unsplash photo (400px `urls.small`) cached once per day in `chrome.storage.local` `unsplash_cache`.
 - `dashboard.html` / `dashboard.js` — reads the last 30 days via `MINDMAP.readRows(30)`; each row is `{ domain, cat, dur, dk, hour }`, the shape the chart renderers use. The Top Sites category badges are `<select>`s for correcting a site's category; changing one saves the override and re-runs `init()` (which destroys existing Chart instances first).
 - `vendor/chart.umd.js` — Chart.js 4.4.3 from npm, unmodified.
+- `theme.css` — shared look for both pages (below).
 
-**Extension page CSP:** no inline `<script>` and no CDN scripts — all JS must be in files in the extension. Stylesheets/fonts from the network are allowed (the dashboard uses Google Fonts).
+## Visual design (`theme.css`)
+Modelled on a blurred album-art "now playing" screen: a sky-blue / rust aura fading to near-black, film grain, and wide-tracked uppercase monospace.
+- Tokens on `:root`: `--mono` (system monospace stack — no web fonts, no network), text `--ink/--ink-2/--ink-3`, `--surface`, `--hairline`, `--tracking` (0.32em), `--radius`.
+- `.aura` + `.grain` are fixed full-page layers (grain is an inline SVG `feTurbulence` data URI). `.cover` is a square card with its own two-tone blurred gradient set by `--c1/--c2` (each brain state's `aura` pair in `shared.js`), a smear band, and a `.grain-layer`. `.ghost` is the horizontal motion-blur text-shadow — use it on **one** hero number per page (clock on the new tab, score on the dashboard cover).
+- Everything is static: no animation loops. The new tab blurs the Unsplash photo (`filter: blur(48px)`) and requests the 400px `urls.small` size, which looks identical once blurred.
+- Charts follow the dataviz rules: text never wears a data colour (identity comes from a dot/key beside it), thin marks (≤24px columns, 2px line, 2px gaps between stacked segments, 4px rounded top only), solid hairline grids, a legend for ≥2 series and none for one, part-to-whole as a stacked bar (not a donut), and a single-hue sequential scale for the time-of-day heatmap.
+
+**Extension page CSP:** no inline `<script>` and no CDN scripts — all JS must be in files in the extension. (Network stylesheets/fonts would be allowed, but the pages deliberately use none.)
 
 ## Tracker (`tracker.js`)
 - Counts active seconds only while a Chrome window is focused, the active tab is http(s), and the user isn't idle (`chrome.idle`, 300 s). An **audible** tab keeps counting while idle (videos). When idle fires, the 300 s of no input is not counted.
@@ -39,25 +47,25 @@ The extension runs during all of the user's browsing, so it must stay cheap. **B
 - Always read data through `MINDMAP.readRows()` so overrides are applied everywhere.
 
 ## Shared constants (`shared.js`)
-Classic script (no `import`/`export`) loaded via `importScripts` in the service worker and `<script src>` in pages. Exposes one global, `MINDMAP`: `CATEGORIES` (key/label/colour), `CATEGORY_KEYS`, `LEARNING_CATEGORIES`, `STATES`, helpers `normalizeCategory()`, `isLearning()`, `brainState(ratio)`, and data access `readRows(days)`, `getCategoryOverrides()`, `setCategoryOverride(domain, category|null)`. Change categories, colours or thresholds here only; `classifyLocally()` must return only these keys.
+Classic script (no `import`/`export`) loaded via `importScripts` in the service worker and `<script src>` in pages. Exposes one global, `MINDMAP`: `CATEGORIES` (key/label/colour), `CATEGORY_KEYS`, `LEARNING_CATEGORIES`, `STATES`, helpers `normalizeCategory()`, `isLearning()`, `brainState(ratio)`, and data access `readRows(days)`, `getCategoryOverrides()`, `setCategoryOverride(domain, category|null)`. Change categories, colours or thresholds here only; `classifyLocally()` must return only these keys. Category colours and their **order** were validated with the dataviz skill's `validate_palette.js` against the dark surface (#0d1424); the order matters because neighbouring stack segments must stay distinguishable. Re-run it if you change either.
 
 ### Categories
 | Category | Counts as | Colour |
 |---|---|---|
-| learning | learning | `#1D9E75` teal |
-| entertainment | entertainment | `#D85A30` coral |
-| social media | entertainment | `#E040FB` magenta |
-| productivity | **learning** | `#378ADD` blue |
-| news | **learning** | `#EF9F27` amber |
-| other | entertainment | `#888780` grey |
+| learning | learning | `#199e70` aqua |
+| entertainment | entertainment | `#d95926` orange |
+| productivity | **learning** | `#3987e5` blue |
+| news | **learning** | `#c98500` amber |
+| social media | entertainment | `#d55181` magenta |
+| other | entertainment | `#7d8494` grey (de-emphasis) |
 
 ### Brain states (by learning share of active time)
 | State | Condition | Colour |
 |---|---|---|
-| Thriving | ≥55% | `#00ffcc` |
-| Healthy | ≥35% | `#88aaff` |
-| Sluggish | ≥15% | `#aa9988` |
-| Rotting | <15% | `#888888` |
+| Thriving | ≥55% | dot `#00ffcc`, aura cyan/aqua |
+| Healthy | ≥35% | dot `#88aaff`, aura sky/rust |
+| Sluggish | ≥15% | dot `#aa9988`, aura dull brown/rust |
+| Rotting | <15% | dot `#888888`, aura ash |
 
 Known weakness: counting productivity and news as "learning", and the thresholds themselves, are arbitrary.
 
