@@ -1,22 +1,7 @@
 // ── Config ──────────────────────────────────────────────────────────────────
 const UNSPLASH_ACCESS_KEY = 'oOEF298YzIVrddPb5UuQVpT9tSIqVggfaLnlBdU6W1Q';
-const SUPABASE_URL = 'https://sagbrkjfdqxqndrfekkp.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhZ2Jya2pmZHF4cW5kcmZla2twIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MTkzNjgsImV4cCI6MjA5MDI5NTM2OH0.R3X09rKRcUES59xnLP_dsQacq6b5gg2QiTIfbTOeTxI';
 
-// ── App URLs — update to your Netlify URL when deployed ─────────────────────
-const BASE_URL = 'file:///Users/perfectackah/MindMap-1';
-const DASHBOARD_URL = `${BASE_URL}/dashboard/dashboard.html`;
-const AR_URL = `${BASE_URL}/ar/ar.html`;
-
-// ── Brain state config ───────────────────────────────────────────────────────
-const STATES = [
-  { name: 'Thriving',  min: 55, color: '#1D9E75' },
-  { name: 'Healthy',   min: 35, color: '#378ADD' },
-  { name: 'Sluggish',  min: 15, color: '#8a6a44' },
-  { name: 'Rotting',   min:  0, color: '#666666' },
-];
-
-const LEARNING_CATS = new Set(['learning', 'productivity', 'news']);
+const DASHBOARD_URL = chrome.runtime.getURL('dashboard.html');
 
 // ── Clock ────────────────────────────────────────────────────────────────────
 const USERNAME = 'User1'; // swap out once auth is implemented
@@ -126,73 +111,27 @@ async function loadBackground() {
     `<a href="${photo.unsplashLink}" target="_blank">Unsplash</a>`;
 }
 
-// ── Supabase auth ────────────────────────────────────────────────────────────
-async function getSession() {
-  const stored = await chrome.storage.local.get('supabase_session');
-  const session = stored.supabase_session;
-
-  if (session?.access_token) {
-    const expired = session.expires_at && session.expires_at * 1000 < Date.now() + 60_000;
-    if (!expired) return session;
-
-    if (session.refresh_token) {
-      try {
-        const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY },
-          body: JSON.stringify({ refresh_token: session.refresh_token }),
-        });
-        const refreshed = await res.json();
-        if (refreshed.access_token) {
-          await chrome.storage.local.set({ supabase_session: refreshed });
-          return refreshed;
-        }
-      } catch (err) {
-        console.warn('Token refresh failed:', err);
-      }
-    }
+// ── Brain score (last 7 days of local totals, same window as the dashboard) ──
+async function fetchScoreTotals() {
+  let total = 0, learning = 0;
+  for (const row of await MINDMAP.readRows(7)) {
+    total += row.dur;
+    if (MINDMAP.isLearning(row.cat)) learning += row.dur;
   }
-
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY },
-    body: JSON.stringify({}),
-  });
-  const data = await res.json();
-  await chrome.storage.local.set({ supabase_session: data });
-  return data;
+  return { total, learning };
 }
 
-// ── Brain score ──────────────────────────────────────────────────────────────
 async function loadBrainScore() {
   try {
-    const session = await getSession();
-    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { total, learning } = await fetchScoreTotals();
 
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/events?select=category,duration&created_at=gte.${since}`,
-      {
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      }
-    );
-    const events = await res.json();
-
-    let total = 0, learning = 0;
-    for (const ev of events) {
-      const dur = ev.duration || 0;
-      total += dur;
-      if (LEARNING_CATS.has(ev.category)) learning += dur;
-    }
-
-    const pct = total > 0 ? Math.round((learning / total) * 100) : 0;
-    const state = STATES.find(s => pct >= s.min) ?? STATES[STATES.length - 1];
+    const ratio = total > 0 ? learning / total : 0;
+    const pct = Math.round(ratio * 100);
+    const state = MINDMAP.brainState(ratio);
 
     document.getElementById('score-num').textContent = pct;
     document.getElementById('score-num').style.color = state.color;
-    document.getElementById('state-name').textContent = state.name;
+    document.getElementById('state-name').textContent = state.label;
     document.getElementById('state-name').style.color = state.color;
     document.getElementById('state-sub').textContent =
       total > 0 ? `${pct}% learning this week` : 'No data yet';
@@ -208,9 +147,6 @@ async function loadBrainScore() {
 // ── Init ─────────────────────────────────────────────────────────────────────
 document.getElementById('brain-widget').addEventListener('click', () => {
   chrome.tabs.create({ url: DASHBOARD_URL });
-});
-document.getElementById('ar-widget').addEventListener('click', () => {
-  chrome.tabs.create({ url: AR_URL });
 });
 loadBackground();
 loadBrainScore();
