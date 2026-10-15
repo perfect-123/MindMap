@@ -19,8 +19,8 @@ The extension runs during all of the user's browsing, so it must stay cheap. **B
 - `background.js` — service worker entry: loads `shared.js` + `tracker.js`, defines `classifyLocally()`.
 - `tracker.js` — the tracker (below).
 - `shared.js` — shared constants (below).
-- `newtab.html` / `newtab.js` — new tab override. Score = last 7 calendar days of local totals. Clicking it opens `chrome.runtime.getURL('dashboard.html')`. Unsplash photo cached once per day in `chrome.storage.local` `unsplash_cache`.
-- `dashboard.html` / `dashboard.js` — reads the last 30 days of local totals and turns each bucket into a row `{ domain, cat, dur, dk, hour }`, the shape the chart renderers use.
+- `newtab.html` / `newtab.js` — new tab override. Score = last 7 calendar days of local totals (`MINDMAP.readRows(7)`). Clicking it opens `chrome.runtime.getURL('dashboard.html')`. Unsplash photo cached once per day in `chrome.storage.local` `unsplash_cache`.
+- `dashboard.html` / `dashboard.js` — reads the last 30 days via `MINDMAP.readRows(30)`; each row is `{ domain, cat, dur, dk, hour }`, the shape the chart renderers use. The Top Sites category badges are `<select>`s for correcting a site's category; changing one saves the override and re-runs `init()` (which destroys existing Chart instances first).
 - `vendor/chart.umd.js` — Chart.js 4.4.3 from npm, unmodified.
 
 **Extension page CSP:** no inline `<script>` and no CDN scripts — all JS must be in files in the extension. Stylesheets/fonts from the network are allowed (the dashboard uses Google Fonts).
@@ -34,11 +34,12 @@ The extension runs during all of the user's browsing, so it must stay cheap. **B
 
 ## Classification
 - `classifyLocally(url, title)` in `background.js`: domain regexes first, then title keywords. Free, instant, no network.
-- Mixed sites (e.g. YouTube) only get a non-default label if the title has words like "tutorial"; the user can't correct labels yet.
-- Planned (phase 4): per-site category overrides set in the dashboard, stored as a domain → category map and applied when data is read, so history updates instantly.
+- Mixed sites (e.g. YouTube) only get a non-default label if the title has words like "tutorial".
+- **Per-site overrides:** set from the dashboard's Top Sites table, stored in `chrome.storage.local` `category_overrides` (`{ domain: category }`). Applied when data is read (`MINDMAP.readRows`), not when recorded, so they re-label all history instantly and can be undone ("↺ Automatic"). An override applies to all of a site's time, including title-based labels. Only sites in the top 10 for the week can be corrected for now.
+- Always read data through `MINDMAP.readRows()` so overrides are applied everywhere.
 
 ## Shared constants (`shared.js`)
-Classic script (no `import`/`export`) loaded via `importScripts` in the service worker and `<script src>` in pages. Exposes one global, `MINDMAP`: `CATEGORIES` (key/label/colour), `CATEGORY_KEYS`, `LEARNING_CATEGORIES`, `STATES`, and helpers `normalizeCategory()`, `isLearning()`, `brainState(ratio)`. Change categories, colours or thresholds here only; `classifyLocally()` must return only these keys.
+Classic script (no `import`/`export`) loaded via `importScripts` in the service worker and `<script src>` in pages. Exposes one global, `MINDMAP`: `CATEGORIES` (key/label/colour), `CATEGORY_KEYS`, `LEARNING_CATEGORIES`, `STATES`, helpers `normalizeCategory()`, `isLearning()`, `brainState(ratio)`, and data access `readRows(days)`, `getCategoryOverrides()`, `setCategoryOverride(domain, category|null)`. Change categories, colours or thresholds here only; `classifyLocally()` must return only these keys.
 
 ### Categories
 | Category | Counts as | Colour |

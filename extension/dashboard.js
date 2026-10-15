@@ -38,20 +38,12 @@ function learningRatio(events) {
 }
 
 // ─── Data: local daily totals written by tracker.js ────────────────────────
-// Each "hour|domain|category" bucket becomes one row, so the renderers below
-// work on the same row shape they always have.
+// Rows come from MINDMAP.readRows with category corrections already applied.
+let overrides = {};
+
 async function loadEvents() {
-  const keys = lastNDays(30).map(dk => 'day:' + dk);
-  const stored = await chrome.storage.local.get(keys);
-  const rows = [];
-  for (const [key, buckets] of Object.entries(stored)) {
-    const dk = key.slice(4);
-    for (const [bucket, secs] of Object.entries(buckets)) {
-      const [hour, domain, category] = bucket.split('|');
-      rows.push({ domain, cat: MINDMAP.normalizeCategory(category), dur: secs, dk, hour: Number(hour) });
-    }
-  }
-  return rows;
+  overrides = await MINDMAP.getCategoryOverrides();
+  return MINDMAP.readRows(30);
 }
 
 // Filter helpers
@@ -460,6 +452,17 @@ function renderHeatmap(events7d) {
 }
 
 // ─── 7. TOP SITES ───────────────────────────────────────────────────────────
+// Category badge that doubles as a dropdown for correcting a site's label
+function categoryPicker(domain, cat) {
+  const color = CAT_COLOR[cat];
+  const options = CATS.map(c =>
+    `<option value="${c}"${c === cat ? ' selected' : ''}>${CAT_LABEL[c]}</option>`).join('');
+  const reset = domain in overrides ? '<option value="">↺ Automatic</option>' : '';
+  return `<select class="cat-badge cat-select" data-domain="${domain}"
+    title="Change this site's category" style="background:${color}22;color:${color}">${options}${reset}</select>${
+    domain in overrides ? '<span class="cat-edited" title="Set by you">✎</span>' : ''}`;
+}
+
 function renderTopSites(events7d) {
   // Aggregate by domain
   const map = {};
@@ -491,7 +494,7 @@ function renderTopSites(events7d) {
     return `
       <tr>
         <td><span class="site-domain">${dom}</span></td>
-        <td><span class="cat-badge" style="background:${color}22;color:${color}">${CAT_LABEL[topCat]}</span></td>
+        <td>${categoryPicker(dom, topCat)}</td>
         <td class="site-time">${fmtTime(secs)}</td>
         <td class="bar-cell">
           <div class="site-bar-track">
@@ -500,6 +503,12 @@ function renderTopSites(events7d) {
         </td>
       </tr>`;
   }).join('');
+
+  card.onchange = async (e) => {
+    if (!e.target.matches('.cat-select')) return;
+    await MINDMAP.setCategoryOverride(e.target.dataset.domain, e.target.value || null);
+    init(); // re-read with the correction applied everywhere
+  };
 
   card.innerHTML = `
     <h2>Top Sites This Week</h2>
@@ -579,6 +588,7 @@ function renderStreak(allEvents) {
 
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
 async function init() {
+  Object.values(Chart.instances).forEach(chart => chart.destroy()); // re-render safely
   try {
     const events     = await loadEvents();
     const todayEvs   = byDate(events, today);

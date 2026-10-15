@@ -111,22 +111,12 @@ async function loadBackground() {
     `<a href="${photo.unsplashLink}" target="_blank">Unsplash</a>`;
 }
 
-// ── Brain score (local daily totals written by tracker.js) ──────────────────
-// Last 7 calendar days including today, same window as the dashboard.
+// ── Brain score (last 7 days of local totals, same window as the dashboard) ──
 async function fetchScoreTotals() {
-  const keys = [];
-  for (let i = 0; i < 7; i++) {
-    keys.push('day:' + new Date(Date.now() - i * 86400000).toLocaleDateString('en-CA'));
-  }
-  const stored = await chrome.storage.local.get(keys);
-
   let total = 0, learning = 0;
-  for (const buckets of Object.values(stored)) {
-    for (const [bucket, secs] of Object.entries(buckets)) {
-      const category = bucket.split('|')[2];
-      total += secs;
-      if (MINDMAP.isLearning(category)) learning += secs;
-    }
+  for (const row of await MINDMAP.readRows(7)) {
+    total += row.dur;
+    if (MINDMAP.isLearning(row.cat)) learning += row.dur;
   }
   return { total, learning };
 }
