@@ -7,7 +7,7 @@ MindMap is a multi-person collaborative project that visualizes brain health bas
 |---|---|---|
 | Landing page | `index.html` | Done — links to dashboard + AR |
 | AR Brain Viewer | `ar/` | Working (Person C) |
-| Dashboard | `dashboard/dashboard.html` | Working — single HTML page, Chart.js |
+| Dashboard | `extension/dashboard.html` | Working — extension page, local data. (Old `dashboard/` reads Supabase; deleted in phase 3) |
 | Chrome Extension | `extension/` | Done (Person B) — tracking + new tab page |
 
 ### Rule: keep the extension lightweight
@@ -149,10 +149,10 @@ Chrome extension that tracks browsing events and stores them in Supabase, labell
 - Per-user summaries depend on fixing RLS first (see Supabase section)
 - Valid categories: `learning`, `entertainment`, `social media`, `productivity`, `news`, `other`
 
-### Local tracker (`tracker.js`) — migration phase 1 of 4
-We're moving to a **local-only** design (no Supabase). Plan: (1) record locally alongside Supabase ← done; (2) new tab, then dashboard (moved into the extension, Chart.js bundled locally) read local data; (3) delete Supabase, AR, root `index.html`, old `dashboard/`; (4) per-site category overrides in the dashboard. Each phase must leave the app working.
+### Local tracker (`tracker.js`) — migration phases 1–2 of 4 done
+We're moving to a **local-only** design (no Supabase). Plan: (1) record locally alongside Supabase ✓; (2) new tab and dashboard (moved into the extension, Chart.js bundled locally) read local data ✓; (3) delete Supabase, AR, root `index.html`, old `dashboard/`; (4) per-site category overrides in the dashboard. Each phase must leave the app working.
 
-- Loaded by `background.js` via `importScripts`; uses its `classifyLocally()`. Runs alongside the Supabase writes — nothing reads its data yet.
+- Loaded by `background.js` via `importScripts`; uses its `classifyLocally()`. Still runs alongside the Supabase writes until phase 3. The new tab and the extension dashboard read its data; the old root `dashboard/` and `ar/` still read Supabase.
 - Counts active seconds only while a Chrome window is focused, the active tab is http(s), and the user isn't idle (`chrome.idle`, 300 s). An **audible** tab keeps counting while idle (videos). When idle fires, the 300 s of no input is not counted.
 - Storage: `chrome.storage.local` key `day:YYYY-MM-DD` (local date) → `{ "hour|domain|category": seconds }`. Domain has `www.` stripped. Segments are split at hour boundaries.
 - The open segment is in `chrome.storage.session` (`tracker_segment`), so it survives service-worker suspension. **No timers** — each tab/focus/idle/title/audible event closes and credits the segment. Events are serialised through a promise queue.
@@ -161,13 +161,14 @@ We're moving to a **local-only** design (no Supabase). Plan: (1) record locally 
 
 ### Key files
 - `background.js` — service worker: tab tracking, Supabase writes, keyword classification, owns the Supabase session (answers `{type: 'getSession'}` messages)
-- `newtab.html` / `newtab.js` — new tab override: clock, greeting, daily Unsplash background, brain score widget. The score's totals are cached in `chrome.storage.local` `brain_score_cache` for 5 minutes, so most new tabs make no request; on a miss it gets its session from the service worker via `chrome.runtime.sendMessage`.
+- `newtab.html` / `newtab.js` — new tab override: clock, greeting, daily Unsplash background, brain score widget. The score is computed from the last 7 calendar days of local `day:` totals (no network). Clicking it opens the extension dashboard via `chrome.runtime.getURL('dashboard.html')`. Planned to grow into a "good morning"-style page.
+- `dashboard.html` / `dashboard.js` — the dashboard, as an extension page. Reads the last 30 days of local `day:` totals and turns each `hour|domain|category` bucket into a row `{ domain, cat, dur, dk, hour }`, the shape the chart renderers use. Extension pages block inline and CDN scripts, so all JS is in files and Chart.js 4.4.3 is bundled at `vendor/chart.umd.js` (from npm, unmodified). Google Fonts CSS still loads from the network (styles are allowed).
 - `tracker.js` — local active-time tracker (see above)
 - `shared.js` — shared constants (see top of this file)
 - `manifest.json` — MV3 manifest
 
 ### Known issues
-- `newtab.js` `BASE_URL` is a hardcoded local `file://` path — dashboard/AR links only work on one machine.
+- `newtab.js` `BASE_URL` is a hardcoded local `file://` path, now used only by the AR link (removed in phase 3).
 - The Supabase tab-tracking state in `background.js` is in memory and is lost when the MV3 service worker is suspended (fixed in `tracker.js`; the Supabase path is being removed).
 
 ---

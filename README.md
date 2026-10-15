@@ -74,6 +74,7 @@ index.html               → Landing page linking to the dashboard and AR
   shared.js              → Shared constants (Supabase config, categories, brain states)
   background.js          → Service worker: tab tracking, Supabase writes, keyword classification
   tracker.js             → Local active-time tracker (idle-aware), daily totals in chrome.storage.local
+  dashboard.html / .js   → Dashboard (extension page, reads local totals; Chart.js in vendor/)
   newtab.html / .js      → New tab page
 /dashboard/dashboard.html → Analytics & charts
 /ar                      → AR brain experience (Three.js + getUserMedia)
