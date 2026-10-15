@@ -67,7 +67,7 @@ extension/
 
 ## Known Limitations
 
-- Keyword classification is rough on mixed sites like YouTube. You can correct any site in the dashboard's Top Sites table, which re-labels its whole history
+- Keyword classification is rough on mixed sites like YouTube. You can correct a site from the dashboard's Top Sites table (the week's top 10), which re-labels its whole history
 - Watching or reading something silently for more than 5 minutes without input counts as idle
 - If Chrome crashes, the time since the last tab switch is lost
 
