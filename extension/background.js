@@ -1,4 +1,4 @@
-importScripts("shared.js"); // MINDMAP
+importScripts("shared.js", "tracker.js"); // MINDMAP; local active-time tracker
 
 const { SUPABASE_URL, SUPABASE_KEY } = MINDMAP;
 

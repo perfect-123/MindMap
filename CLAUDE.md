@@ -149,15 +149,26 @@ Chrome extension that tracks browsing events and stores them in Supabase, labell
 - Per-user summaries depend on fixing RLS first (see Supabase section)
 - Valid categories: `learning`, `entertainment`, `social media`, `productivity`, `news`, `other`
 
+### Local tracker (`tracker.js`) — migration phase 1 of 4
+We're moving to a **local-only** design (no Supabase). Plan: (1) record locally alongside Supabase ← done; (2) new tab, then dashboard (moved into the extension, Chart.js bundled locally) read local data; (3) delete Supabase, AR, root `index.html`, old `dashboard/`; (4) per-site category overrides in the dashboard. Each phase must leave the app working.
+
+- Loaded by `background.js` via `importScripts`; uses its `classifyLocally()`. Runs alongside the Supabase writes — nothing reads its data yet.
+- Counts active seconds only while a Chrome window is focused, the active tab is http(s), and the user isn't idle (`chrome.idle`, 300 s). An **audible** tab keeps counting while idle (videos). When idle fires, the 300 s of no input is not counted.
+- Storage: `chrome.storage.local` key `day:YYYY-MM-DD` (local date) → `{ "hour|domain|category": seconds }`. Domain has `www.` stripped. Segments are split at hour boundaries.
+- The open segment is in `chrome.storage.session` (`tracker_segment`), so it survives service-worker suspension. **No timers** — each tab/focus/idle/title/audible event closes and credits the segment. Events are serialised through a promise queue.
+- Safety cap: one segment credits at most 2 h. Days older than 365 are pruned on browser startup.
+- If Chrome crashes, the open segment since the last event is lost.
+
 ### Key files
 - `background.js` — service worker: tab tracking, Supabase writes, keyword classification, owns the Supabase session (answers `{type: 'getSession'}` messages)
 - `newtab.html` / `newtab.js` — new tab override: clock, greeting, daily Unsplash background, brain score widget. The score's totals are cached in `chrome.storage.local` `brain_score_cache` for 5 minutes, so most new tabs make no request; on a miss it gets its session from the service worker via `chrome.runtime.sendMessage`.
+- `tracker.js` — local active-time tracker (see above)
 - `shared.js` — shared constants (see top of this file)
 - `manifest.json` — MV3 manifest
 
 ### Known issues
 - `newtab.js` `BASE_URL` is a hardcoded local `file://` path — dashboard/AR links only work on one machine.
-- Tab-tracking state in `background.js` is in memory and is lost when the MV3 service worker is suspended.
+- The Supabase tab-tracking state in `background.js` is in memory and is lost when the MV3 service worker is suspended (fixed in `tracker.js`; the Supabase path is being removed).
 
 ---
 
