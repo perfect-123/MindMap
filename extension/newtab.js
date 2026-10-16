@@ -86,7 +86,7 @@ async function loadBackground() {
       const data = await res.json();
       photo = {
         date: today,
-        url: data.urls.regular,
+        url: data.urls.small, // 400px is plenty once blurred
         photographer: data.user.name,
         photographerLink: data.user.links.html + '?utm_source=mindmap&utm_medium=referral',
         unsplashLink: data.links.html + '?utm_source=mindmap&utm_medium=referral',
@@ -129,12 +129,14 @@ async function loadBrainScore() {
     const pct = Math.round(ratio * 100);
     const state = MINDMAP.brainState(ratio);
 
-    document.getElementById('score-num').textContent = pct;
-    document.getElementById('score-num').style.color = state.color;
-    document.getElementById('state-name').textContent = state.label;
-    document.getElementById('state-name').style.color = state.color;
-    document.getElementById('state-sub').textContent =
-      total > 0 ? `${pct}% learning this week` : 'No data yet';
+    const tile = document.getElementById('brain-widget');
+    tile.style.setProperty('--c1', state.aura[0]);
+    tile.style.setProperty('--c2', state.aura[1]);
+    document.getElementById('score-num').innerHTML = total > 0 ? `${pct}<small>%</small>` : '—';
+    document.getElementById('state-name').innerHTML = total > 0
+      ? `<span class="state-dot" style="background:${state.color}"></span>${state.label}`
+      : 'No data yet';
+    document.getElementById('state-sub').textContent = 'Learning share · open dashboard';
 
     document.getElementById('brain-widget').classList.add('loaded');
   } catch (err) {

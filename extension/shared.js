@@ -5,14 +5,19 @@
 // Everything lives on one global, MINDMAP.
 
 const MINDMAP = (() => {
-  // classifyLocally() in background.js must return only these keys
+  // classifyLocally() in background.js must return only these keys.
+  // Order = stacking/legend order. Colours are the dataviz reference palette's
+  // dark steps, and this order was chosen because it passes the palette
+  // validator on the #0d1424 surface (adjacent CVD ΔE 9.4, normal-vision 19.3).
+  // Re-validate if you change a colour or the order. "Other" is a deliberate
+  // de-emphasis grey, not an identity hue.
   const CATEGORIES = [
-    { key: 'learning',      label: 'Learning',      color: '#1D9E75' },
-    { key: 'entertainment', label: 'Entertainment', color: '#D85A30' },
-    { key: 'social media',  label: 'Social Media',  color: '#E040FB' },
-    { key: 'productivity',  label: 'Productivity',  color: '#378ADD' },
-    { key: 'news',          label: 'News',          color: '#EF9F27' },
-    { key: 'other',         label: 'Other',         color: '#888780' },
+    { key: 'learning',      label: 'Learning',      color: '#199e70' },
+    { key: 'entertainment', label: 'Entertainment', color: '#d95926' },
+    { key: 'productivity',  label: 'Productivity',  color: '#3987e5' },
+    { key: 'news',          label: 'News',          color: '#c98500' },
+    { key: 'social media',  label: 'Social Media',  color: '#d55181' },
+    { key: 'other',         label: 'Other',         color: '#7d8494' },
   ];
   const CATEGORY_KEYS = CATEGORIES.map(c => c.key);
 
@@ -20,11 +25,14 @@ const MINDMAP = (() => {
   const LEARNING_CATEGORIES = new Set(['learning', 'productivity', 'news']);
 
   // Highest threshold first; `min` is the minimum learning ratio (0–1)
+  // `color` is the status dot (always shown with the label, never alone).
+  // `aura` is the two-tone blurred gradient behind the score "cover":
+  // bright and cool when thriving, dull and ashen when rotting.
   const STATES = [
-    { key: 'thriving', label: 'Thriving', min: 0.55, color: '#00ffcc' },
-    { key: 'healthy',  label: 'Healthy',  min: 0.35, color: '#88aaff' },
-    { key: 'sluggish', label: 'Sluggish', min: 0.15, color: '#aa9988' },
-    { key: 'rotting',  label: 'Rotting',  min: 0,    color: '#888888' },
+    { key: 'thriving', label: 'Thriving', min: 0.55, color: '#00ffcc', aura: ['#5ccfe6', '#1baf7a'] },
+    { key: 'healthy',  label: 'Healthy',  min: 0.35, color: '#88aaff', aura: ['#7fb0e6', '#b0603f'] },
+    { key: 'sluggish', label: 'Sluggish', min: 0.15, color: '#aa9988', aura: ['#8c7d70', '#9a4f33'] },
+    { key: 'rotting',  label: 'Rotting',  min: 0,    color: '#888888', aura: ['#545b68', '#5e5650'] },
   ];
 
   // Normalises a raw category value; unknown or "uncategorized" → "other"

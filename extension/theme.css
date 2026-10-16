@@ -1,0 +1,131 @@
+/* Shared look for the new tab and dashboard: a blurred sky-blue / rust aura
+   fading to near-black, film grain, and wide-tracked uppercase monospace.
+   Everything here is static (no animation loops) and needs no network. */
+
+:root {
+  color-scheme: dark;
+
+  --mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* Text tokens — data colours are never used for text */
+  --ink:   #f3f1ee;
+  --ink-2: rgba(243, 241, 238, 0.68);
+  --ink-3: rgba(243, 241, 238, 0.44);
+
+  /* Surfaces */
+  --base:      #070b14;
+  --surface:   rgba(13, 20, 36, 0.62);   /* reads as ≈ #0d1424 over the aura */
+  --hairline:  rgba(255, 255, 255, 0.07);
+  --edge:      rgba(255, 255, 255, 0.09);
+
+  /* The aura (matches the reference: sky top-left, rust top-right) */
+  --sky:  #7fb0e6;
+  --rust: #b0603f;
+  --navy: #14213d;
+
+  --tracking: 0.32em;
+  --radius: 26px;
+}
+
+* , *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--mono);
+  color: var(--ink);
+  background: var(--base);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Aura + grain (fixed, behind everything) ───────────────────────────── */
+.aura {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 55% at 12% 0%,  color-mix(in srgb, var(--sky) 85%, transparent), transparent 70%),
+    radial-gradient(55% 50% at 92% 4%,  color-mix(in srgb, var(--rust) 80%, transparent), transparent 70%),
+    radial-gradient(70% 60% at 50% 40%, color-mix(in srgb, var(--navy) 90%, transparent), transparent 80%),
+    linear-gradient(180deg, transparent 0%, var(--base) 78%);
+}
+
+.grain {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.16;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ── Type ───────────────────────────────────────────────────────────────── */
+.label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: var(--tracking);
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.spaced {
+  letter-spacing: var(--tracking);
+  text-transform: uppercase;
+}
+
+/* Horizontal motion-blur ghost, like the smeared portrait on the cover */
+.ghost {
+  text-shadow:
+    -0.16em 0 0.05em rgba(255, 255, 255, 0.20),
+     0.16em 0 0.05em rgba(255, 255, 255, 0.20),
+    -0.34em 0 0.12em rgba(255, 255, 255, 0.10),
+     0.34em 0 0.12em rgba(255, 255, 255, 0.10);
+}
+
+/* ── Cover: a square card with its own blurred aura + grain ─────────────── */
+.cover {
+  --c1: var(--sky);
+  --c2: var(--rust);
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius);
+  isolation: isolate;
+  background:
+    radial-gradient(65% 70% at 85% 15%, color-mix(in srgb, var(--c1) 80%, transparent), transparent 70%),
+    radial-gradient(70% 70% at 20% 30%, color-mix(in srgb, var(--c2) 75%, transparent), transparent 72%),
+    radial-gradient(90% 60% at 60% 110%, #1b2a6b, transparent 70%),
+    #121a2e;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+}
+.cover::before {           /* the horizontal smear band through the middle */
+  content: '';
+  position: absolute;
+  inset: 34% -10% 30%;
+  z-index: -1;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--c2) 55%, transparent) 30%,
+              color-mix(in srgb, var(--c1) 45%, transparent) 70%, transparent);
+  filter: blur(22px);
+}
+.cover .grain-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.2;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* State dot: status is always dot + label, never colour alone */
+.state-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 0.7em;
+  vertical-align: 0.08em;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .grain, .cover .grain-layer { display: none; }
+}
