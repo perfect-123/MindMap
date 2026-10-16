@@ -1,6 +1,9 @@
 // Service worker entry point. All tracking lives in tracker.js.
 importScripts("shared.js", "tracker.js");
 
+// The new tab no longer fetches a daily Unsplash photo; drop its old cache
+chrome.runtime.onInstalled.addListener(() => chrome.storage.local.remove("unsplash_cache"));
+
 // ─── Keyword classification ─────────────────────────────────────────────────
 // Free and local: labels a page from its domain, then its title.
 function classifyLocally(url, title) {

@@ -1,115 +1,118 @@
 // ── Config ──────────────────────────────────────────────────────────────────
-const UNSPLASH_ACCESS_KEY = 'oOEF298YzIVrddPb5UuQVpT9tSIqVggfaLnlBdU6W1Q';
 
 const DASHBOARD_URL = chrome.runtime.getURL('dashboard.html');
 
-// ── Clock ────────────────────────────────────────────────────────────────────
-const USERNAME = 'User1'; // swap out once auth is implemented
-
+// ── Greeting ─────────────────────────────────────────────────────────────────
+// Each greeting is [text, ending]; the name (if set) goes before the ending,
+// so "Still up?" becomes "Still up, Perfect?".
 const GREETINGS = {
   earlyMorning: [ // 5am–8am
-    `Rise and shine`,
-    `Early start today`,
-    `Up with the sun`,
-    `Good morning, early bird`,
+    ['Rise and shine', '.'],
+    ['Early start today', '.'],
+    ['Up with the sun', '.'],
+    ['Morning, early bird', '.'],
   ],
   morning: [ // 8am–12pm
-    `Good morning`,
-    `Welcome back`,
-    `Hope you slept well`,
-    `Ready for the day`,
+    ['Good morning', '.'],
+    ['Welcome back', '.'],
+    ['Hope you slept well', '.'],
+    ['Ready for the day', '?'],
   ],
   afternoon: [ // 12pm–5pm
-    `Good afternoon`,
-    `Welcome back`,
-    `Hope the day's treating you well`,
-    `Afternoon check-in`,
+    ['Good afternoon', '.'],
+    ['Welcome back', '.'],
+    ['Hope the day is treating you well', '.'],
+    ['Afternoon check-in', '.'],
   ],
   evening: [ // 5pm–8pm
-    `Good evening`,
-    `Welcome back`,
-    `Winding down?`,
-    `Hope today was productive`,
+    ['Good evening', '.'],
+    ['Welcome back', '.'],
+    ['Winding down', '?'],
+    ['Hope today was a good one', '.'],
   ],
   lateNight: [ // 8pm–12am
-    `Burning the midnight oil`,
-    `Late night session`,
-    `Still going strong`,
-    `Night owl mode`,
+    ['Burning the midnight oil', '?'],
+    ['Late night session', '?'],
+    ['Still going strong', '.'],
+    ['Night owl mode', '.'],
   ],
   veryLate: [ // 12am–5am
-    `You should probably sleep`,
-    `Still up?`,
-    `The grind never stops`,
-    `Late night, huh`,
+    ['You should probably sleep', '.'],
+    ['Still up', '?'],
+    ['The grind never stops', '.'],
+    ['Late night, huh', '?'],
   ],
 };
 
-function pickGreeting(h24) {
-  let pool;
-  if      (h24 >= 5  && h24 < 8)  pool = GREETINGS.earlyMorning;
-  else if (h24 >= 8  && h24 < 12) pool = GREETINGS.morning;
-  else if (h24 >= 12 && h24 < 17) pool = GREETINGS.afternoon;
-  else if (h24 >= 17 && h24 < 20) pool = GREETINGS.evening;
-  else if (h24 >= 20 && h24 < 24) pool = GREETINGS.lateNight;
-  else                             pool = GREETINGS.veryLate;
-  return pool[Math.floor(Math.random() * pool.length)];
+function greetingPool(h24) {
+  if (h24 >= 5  && h24 < 8)  return GREETINGS.earlyMorning;
+  if (h24 >= 8  && h24 < 12) return GREETINGS.morning;
+  if (h24 >= 12 && h24 < 17) return GREETINGS.afternoon;
+  if (h24 >= 17 && h24 < 20) return GREETINGS.evening;
+  if (h24 >= 20)             return GREETINGS.lateNight;
+  return GREETINGS.veryLate;
 }
 
-// Pick once per tab open so it doesn't change every 10s
-const SESSION_GREETING = pickGreeting(new Date().getHours());
+// Picked once per tab so it doesn't change while the page is open
+const pool = greetingPool(new Date().getHours());
+const [GREETING_TEXT, GREETING_END] = pool[Math.floor(Math.random() * pool.length)];
+const greetingEl = document.getElementById('greeting');
 
+function renderGreeting(name) {
+  greetingEl.textContent = `${GREETING_TEXT}${name ? `, ${name}` : ''}${GREETING_END}`;
+}
+
+// The name is stored locally; click the greeting to set or change it
+async function initGreeting() {
+  let { user_name = '' } = await chrome.storage.local.get('user_name');
+  renderGreeting(user_name);
+  greetingEl.title = user_name ? 'Click to change your name' : 'Click to add your name';
+
+  greetingEl.addEventListener('click', () => {
+    if (greetingEl.querySelector('input')) return;
+    const input = document.createElement('input');
+    input.className = 'name-input';
+    input.placeholder = 'Your name';
+    input.maxLength = 30;
+    input.value = user_name;
+    greetingEl.replaceChildren(input);
+    input.focus();
+    let finished = false;
+    const done = async (save) => {
+      if (finished) return;
+      finished = true;
+      if (save) {
+        user_name = input.value.trim();
+        await chrome.storage.local.set({ user_name });
+        greetingEl.title = user_name ? 'Click to change your name' : 'Click to add your name';
+      }
+      renderGreeting(user_name);
+    };
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') done(true);
+      if (e.key === 'Escape') done(false);
+    });
+    input.addEventListener('blur', () => done(true), { once: true });
+  });
+}
+
+// ── Clock ────────────────────────────────────────────────────────────────────
 function updateClock() {
   const now = new Date();
   const h24 = now.getHours();
-  const h12 = h24 % 12 || 12;
   const m = String(now.getMinutes()).padStart(2, '0');
-  const ampm = h24 < 12 ? 'AM' : 'PM';
-  document.getElementById('clock').innerHTML = `<span id="time-digits">${h12}:${m}</span><span id="ampm">${ampm}</span>`;
-  document.getElementById('greeting').textContent = `${SESSION_GREETING}, ${USERNAME}.`;
+  document.getElementById('time-digits').textContent = `${h24 % 12 || 12}:${m}`;
+  document.getElementById('ampm').textContent = h24 < 12 ? 'AM' : 'PM';
 }
 updateClock();
 setInterval(updateClock, 10_000);
 
-// ── Unsplash background ──────────────────────────────────────────────────────
-async function loadBackground() {
-  const cache = await chrome.storage.local.get('unsplash_cache');
-  const today = new Date().toDateString();
-
-  let photo = cache.unsplash_cache;
-  if (!photo || photo.date !== today) {
-    try {
-      const res = await fetch(
-        `https://api.unsplash.com/photos/random?orientation=landscape&client_id=${UNSPLASH_ACCESS_KEY}`
-      );
-      if (!res.ok) throw new Error(res.status);
-      const data = await res.json();
-      photo = {
-        date: today,
-        url: data.urls.small, // 400px is plenty once blurred
-        photographer: data.user.name,
-        photographerLink: data.user.links.html + '?utm_source=mindmap&utm_medium=referral',
-        unsplashLink: data.links.html + '?utm_source=mindmap&utm_medium=referral',
-      };
-      await chrome.storage.local.set({ unsplash_cache: photo });
-    } catch (err) {
-      console.warn('Unsplash fetch failed:', err);
-      return;
-    }
-  }
-
-  const bg = document.getElementById('bg');
-  const img = new Image();
-  img.onload = () => {
-    bg.style.backgroundImage = `url(${photo.url})`;
-    bg.classList.add('loaded');
-  };
-  img.src = photo.url;
-
-  document.getElementById('photo-credit').innerHTML =
-    `Photo by <a href="${photo.photographerLink}" target="_blank">${photo.photographer}</a> on ` +
-    `<a href="${photo.unsplashLink}" target="_blank">Unsplash</a>`;
-}
+// ── Search — goes to the user's default search engine ───────────────────────
+document.getElementById('search').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const text = document.getElementById('q').value.trim();
+  if (text) chrome.search.query({ text, disposition: 'CURRENT_TAB' });
+});
 
 // ── Brain score (last 7 days of local totals, same window as the dashboard) ──
 async function fetchScoreTotals() {
@@ -150,5 +153,5 @@ async function loadBrainScore() {
 document.getElementById('brain-widget').addEventListener('click', () => {
   chrome.tabs.create({ url: DASHBOARD_URL });
 });
-loadBackground();
+initGreeting();
 loadBrainScore();
