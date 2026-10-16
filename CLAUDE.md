@@ -6,7 +6,7 @@ MindMap is a Chrome extension that shows how you spend your time online: how muc
 | Part | Files | What it does |
 |---|---|---|
 | Tracker | `extension/tracker.js` + `background.js` | Counts active time per site/category, stores daily totals locally |
-| New tab | `extension/newtab.html` / `newtab.js` | Clock, greeting, fixed aura background, 7-day brain score. Planned to grow into a "good morning"-style page |
+| New tab | `extension/newtab.html` / `newtab.js` | Clock, greeting, search bar, fixed aura background, 7-day brain score. Planned to grow into a "good morning"-style page |
 | Dashboard | `extension/dashboard.html` / `dashboard.js` | Category breakdowns, weekly trends, time-of-day heatmap, top sites, streak |
 
 This repo is a fork of `prospersa1/MindMap` (a hackathon project). The fork dropped Supabase, the AR brain viewer, the landing page and Gemini classification — see git history before commit "Phase 3" for those.
@@ -15,11 +15,11 @@ This repo is a fork of `prospersa1/MindMap` (a hackathon project). The fork drop
 The extension runs during all of the user's browsing, so it must stay cheap. **Before building any feature, alert the user if it adds unnecessary compute or network work to normal browsing** — e.g. per-tab or per-page-load work, content scripts injected into pages, background timers/polling, extra API calls, or heavy rendering on the new tab page. Say what it costs and suggest a cheaper alternative (caching, batching, doing it only on demand). The dashboard only runs when opened, so this matters less there.
 
 ## Files (`extension/`)
-- `manifest.json` — MV3. Permissions: `tabs`, `storage`, `windows`, `idle`; no host permissions.
+- `manifest.json` — MV3. Permissions: `tabs`, `storage`, `windows`, `idle`, `search`; no host permissions.
 - `background.js` — service worker entry: loads `shared.js` + `tracker.js`, defines `classifyLocally()`.
 - `tracker.js` — the tracker (below).
 - `shared.js` — shared constants (below).
-- `newtab.html` / `newtab.js` — new tab override: ghosted clock, greeting, the fixed `aura.png` background, and the 7-day score as a small cover tile tinted by brain state (`MINDMAP.readRows(7)`). Clicking the tile opens `chrome.runtime.getURL('dashboard.html')`.
+- `newtab.html` / `newtab.js` — new tab override: ghosted clock, greeting, search bar, the fixed `aura.png` background, and the 7-day score as a small cover tile tinted by brain state (`MINDMAP.readRows(7)`). Clicking the tile opens `chrome.runtime.getURL('dashboard.html')`.
 - `aura.png` — the new tab background: a 44×54px, pre-blurred colour field (≈3 KB) baked from the reference design so only colour survives. Fixed by design — the background never changes. (Replaced the daily Unsplash photo; `background.js` clears the old `unsplash_cache` key on update.)
 - `dashboard.html` / `dashboard.js` — reads the last 30 days via `MINDMAP.readRows(30)`; each row is `{ domain, cat, dur, dk, hour }`, the shape the chart renderers use. The Top Sites category badges are `<select>`s for correcting a site's category; changing one saves the override and re-runs `init()` (which destroys existing Chart instances first).
 - `vendor/chart.umd.js` — Chart.js 4.4.3 from npm, unmodified.
@@ -73,5 +73,7 @@ Known weakness: counting productivity and news as "learning", and the thresholds
 ## Testing
 There is no build step or test suite. To try it: `chrome://extensions` → Developer mode → Load unpacked → `extension/`, then reload after changes. The service worker's console is under "Inspect views" on that page; stored totals can be checked there with `chrome.storage.local.get(null)`.
 
-## Known issues
-- `newtab.js` has a hardcoded `USERNAME = 'User1'`.
+### New tab details
+- **Greetings:** `GREETINGS` entries are `[text, ending]`; the name goes before the ending ("Still up, Perfect?"), and is left out when unset. One is picked per tab by time of day.
+- **Name:** stored in `chrome.storage.local` `user_name`. Clicking the greeting turns it into an inline input (Enter/blur saves, Escape cancels).
+- **Search:** `chrome.search.query()` (needs the `search` permission) sends the query to the user's default search engine in the current tab; nothing runs until submit. Chrome keeps focus in the address bar on a new tab, so the box can't autofocus.

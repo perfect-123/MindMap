@@ -6,7 +6,8 @@
     "tabs",
     "storage",
     "windows",
-    "idle"
+    "idle",
+    "search"
   ],
   "background": {
     "service_worker": "background.js"
