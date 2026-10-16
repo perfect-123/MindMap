@@ -1,5 +1,4 @@
 // ── Config ──────────────────────────────────────────────────────────────────
-const UNSPLASH_ACCESS_KEY = 'oOEF298YzIVrddPb5UuQVpT9tSIqVggfaLnlBdU6W1Q';
 
 const DASHBOARD_URL = chrome.runtime.getURL('dashboard.html');
 
@@ -71,46 +70,6 @@ function updateClock() {
 updateClock();
 setInterval(updateClock, 10_000);
 
-// ── Unsplash background ──────────────────────────────────────────────────────
-async function loadBackground() {
-  const cache = await chrome.storage.local.get('unsplash_cache');
-  const today = new Date().toDateString();
-
-  let photo = cache.unsplash_cache;
-  if (!photo || photo.date !== today) {
-    try {
-      const res = await fetch(
-        `https://api.unsplash.com/photos/random?orientation=landscape&client_id=${UNSPLASH_ACCESS_KEY}`
-      );
-      if (!res.ok) throw new Error(res.status);
-      const data = await res.json();
-      photo = {
-        date: today,
-        url: data.urls.small, // 400px is plenty once blurred
-        photographer: data.user.name,
-        photographerLink: data.user.links.html + '?utm_source=mindmap&utm_medium=referral',
-        unsplashLink: data.links.html + '?utm_source=mindmap&utm_medium=referral',
-      };
-      await chrome.storage.local.set({ unsplash_cache: photo });
-    } catch (err) {
-      console.warn('Unsplash fetch failed:', err);
-      return;
-    }
-  }
-
-  const bg = document.getElementById('bg');
-  const img = new Image();
-  img.onload = () => {
-    bg.style.backgroundImage = `url(${photo.url})`;
-    bg.classList.add('loaded');
-  };
-  img.src = photo.url;
-
-  document.getElementById('photo-credit').innerHTML =
-    `Photo by <a href="${photo.photographerLink}" target="_blank">${photo.photographer}</a> on ` +
-    `<a href="${photo.unsplashLink}" target="_blank">Unsplash</a>`;
-}
-
 // ── Brain score (last 7 days of local totals, same window as the dashboard) ──
 async function fetchScoreTotals() {
   let total = 0, learning = 0;
@@ -150,5 +109,4 @@ async function loadBrainScore() {
 document.getElementById('brain-widget').addEventListener('click', () => {
   chrome.tabs.create({ url: DASHBOARD_URL });
 });
-loadBackground();
 loadBrainScore();

@@ -1,12 +1,12 @@
 # MindMap — Claude Context
 
 ## Project Overview
-MindMap is a Chrome extension that shows how you spend your time online: how much active browsing time goes to learning vs entertainment. It is **local-only** — no backend, no accounts, no network calls except the new tab's Unsplash photo.
+MindMap is a Chrome extension that shows how you spend your time online: how much active browsing time goes to learning vs entertainment. It is **local-only** — no backend, no accounts, no network calls at all.
 
 | Part | Files | What it does |
 |---|---|---|
 | Tracker | `extension/tracker.js` + `background.js` | Counts active time per site/category, stores daily totals locally |
-| New tab | `extension/newtab.html` / `newtab.js` | Clock, greeting, daily photo, 7-day brain score. Planned to grow into a "good morning"-style page |
+| New tab | `extension/newtab.html` / `newtab.js` | Clock, greeting, fixed aura background, 7-day brain score. Planned to grow into a "good morning"-style page |
 | Dashboard | `extension/dashboard.html` / `dashboard.js` | Category breakdowns, weekly trends, time-of-day heatmap, top sites, streak |
 
 This repo is a fork of `prospersa1/MindMap` (a hackathon project). The fork dropped Supabase, the AR brain viewer, the landing page and Gemini classification — see git history before commit "Phase 3" for those.
@@ -15,11 +15,12 @@ This repo is a fork of `prospersa1/MindMap` (a hackathon project). The fork drop
 The extension runs during all of the user's browsing, so it must stay cheap. **Before building any feature, alert the user if it adds unnecessary compute or network work to normal browsing** — e.g. per-tab or per-page-load work, content scripts injected into pages, background timers/polling, extra API calls, or heavy rendering on the new tab page. Say what it costs and suggest a cheaper alternative (caching, batching, doing it only on demand). The dashboard only runs when opened, so this matters less there.
 
 ## Files (`extension/`)
-- `manifest.json` — MV3. Permissions: `tabs`, `storage`, `windows`, `idle`; host permission only for `api.unsplash.com`.
+- `manifest.json` — MV3. Permissions: `tabs`, `storage`, `windows`, `idle`; no host permissions.
 - `background.js` — service worker entry: loads `shared.js` + `tracker.js`, defines `classifyLocally()`.
 - `tracker.js` — the tracker (below).
 - `shared.js` — shared constants (below).
-- `newtab.html` / `newtab.js` — new tab override: ghosted clock, greeting, blurred daily photo, and the 7-day score as a small cover tile tinted by brain state (`MINDMAP.readRows(7)`). Clicking the tile opens `chrome.runtime.getURL('dashboard.html')`. Unsplash photo (400px `urls.small`) cached once per day in `chrome.storage.local` `unsplash_cache`.
+- `newtab.html` / `newtab.js` — new tab override: ghosted clock, greeting, the fixed `aura.png` background, and the 7-day score as a small cover tile tinted by brain state (`MINDMAP.readRows(7)`). Clicking the tile opens `chrome.runtime.getURL('dashboard.html')`.
+- `aura.png` — the new tab background: a 44×54px, pre-blurred colour field (≈3 KB) baked from the reference design so only colour survives. Fixed by design — the background never changes. (Replaced the daily Unsplash photo; `background.js` clears the old `unsplash_cache` key on update.)
 - `dashboard.html` / `dashboard.js` — reads the last 30 days via `MINDMAP.readRows(30)`; each row is `{ domain, cat, dur, dk, hour }`, the shape the chart renderers use. The Top Sites category badges are `<select>`s for correcting a site's category; changing one saves the override and re-runs `init()` (which destroys existing Chart instances first).
 - `vendor/chart.umd.js` — Chart.js 4.4.3 from npm, unmodified.
 - `theme.css` — shared look for both pages (below).
@@ -28,7 +29,7 @@ The extension runs during all of the user's browsing, so it must stay cheap. **B
 Modelled on a blurred album-art "now playing" screen: a sky-blue / rust aura fading to near-black, film grain, and wide-tracked uppercase monospace.
 - Tokens on `:root`: `--mono` (system monospace stack — no web fonts, no network), text `--ink/--ink-2/--ink-3`, `--surface`, `--hairline`, `--tracking` (0.32em), `--radius`.
 - `.aura` + `.grain` are fixed full-page layers (grain is an inline SVG `feTurbulence` data URI). `.cover` is a square card with its own two-tone blurred gradient set by `--c1/--c2` (each brain state's `aura` pair in `shared.js`), a smear band, and a `.grain-layer`. `.ghost` is the horizontal motion-blur text-shadow — use it on **one** hero number per page (clock on the new tab, score on the dashboard cover).
-- Everything is static: no animation loops. The new tab blurs the Unsplash photo (`filter: blur(48px)`) and requests the 400px `urls.small` size, which looks identical once blurred.
+- Everything is static: no animation loops, no network. The new tab stretches `aura.png` full-screen with `filter: blur(20px) saturate(1.3)`.
 - Charts follow the dataviz rules: text never wears a data colour (identity comes from a dot/key beside it), thin marks (≤24px columns, 2px line, 2px gaps between stacked segments, 4px rounded top only), solid hairline grids, a legend for ≥2 series and none for one, part-to-whole as a stacked bar (not a donut), and a single-hue sequential scale for the time-of-day heatmap.
 
 **Extension page CSP:** no inline `<script>` and no CDN scripts — all JS must be in files in the extension. (Network stylesheets/fonts would be allowed, but the pages deliberately use none.)
@@ -73,4 +74,4 @@ Known weakness: counting productivity and news as "learning", and the thresholds
 There is no build step or test suite. To try it: `chrome://extensions` → Developer mode → Load unpacked → `extension/`, then reload after changes. The service worker's console is under "Inspect views" on that page; stored totals can be checked there with `chrome.storage.local.get(null)`.
 
 ## Known issues
-- `newtab.js` has a hardcoded `USERNAME = 'User1'` and a hardcoded Unsplash access key.
+- `newtab.js` has a hardcoded `USERNAME = 'User1'`.
