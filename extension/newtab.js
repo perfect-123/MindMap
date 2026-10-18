@@ -4,10 +4,10 @@ const DASHBOARD_URL = chrome.runtime.getURL('dashboard.html');
 
 // ── Background — one momiji scene, by time of day or picked by the user ─────
 // The choice lives in localStorage (synchronous, so the scene is set before
-// first paint). The bottom-right button cycles through BG_MODES.
+// first paint): 'auto', or the key of the scene the user picked. Under the
+// tile, the Scene button steps through SCENES and the Auto switch toggles.
 const BG_MODE_KEY = 'mindmap_bg_mode';
-const BG_MODES = [
-  { key: 'auto',     label: 'Auto' },
+const SCENES = [
   { key: 'thriving', label: 'Spring' },
   { key: 'healthy',  label: 'Autumn' },
   { key: 'sluggish', label: 'Dry' },
@@ -27,25 +27,38 @@ try {
   bgMode = localStorage.getItem(BG_MODE_KEY) || 'auto';
   localStorage.removeItem('mindmap_bg'); // old brain-state cache
 } catch {}
-if (!BG_MODES.some((m) => m.key === bgMode)) bgMode = 'auto';
+if (bgMode !== 'auto' && !SCENES.some((s) => s.key === bgMode)) bgMode = 'auto';
 
 const bgName = document.getElementById('bg-name');
+const bgAuto = document.getElementById('bg-auto');
 
-function applyBackground() {
-  const scene = bgMode === 'auto' ? sceneForHour(new Date().getHours()) : bgMode;
-  if (document.body.dataset.bg === scene && bgName.textContent) return;
-  document.body.dataset.bg = scene;
-  const sceneLabel = BG_MODES.find((m) => m.key === scene).label;
-  bgName.textContent = bgMode === 'auto' ? `Auto · ${sceneLabel}` : sceneLabel;
+function currentScene() {
+  return bgMode === 'auto' ? sceneForHour(new Date().getHours()) : bgMode;
 }
 
-document.getElementById('bg-picker').addEventListener('click', () => {
-  const i = BG_MODES.findIndex((m) => m.key === bgMode);
-  bgMode = BG_MODES[(i + 1) % BG_MODES.length].key;
+function applyBackground() {
+  const scene = currentScene();
+  if (document.body.dataset.bg === scene && bgName.textContent) return;
+  document.body.dataset.bg = scene;
+  bgName.textContent = SCENES.find((s) => s.key === scene).label;
+}
+
+function setBgMode(mode) {
+  bgMode = mode;
   try { localStorage.setItem(BG_MODE_KEY, bgMode); } catch {}
-  bgName.textContent = '';
+  bgAuto.setAttribute('aria-checked', String(bgMode === 'auto'));
   applyBackground();
+}
+
+// Picking a scene turns Auto off
+document.getElementById('bg-picker').addEventListener('click', () => {
+  const i = SCENES.findIndex((s) => s.key === currentScene());
+  setBgMode(SCENES[(i + 1) % SCENES.length].key);
 });
+// Turning Auto off keeps the scene that's showing
+bgAuto.addEventListener('click', () => setBgMode(bgMode === 'auto' ? currentScene() : 'auto'));
+
+bgAuto.setAttribute('aria-checked', String(bgMode === 'auto'));
 applyBackground();
 
 // ── Greeting ─────────────────────────────────────────────────────────────────

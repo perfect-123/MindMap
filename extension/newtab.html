@@ -162,27 +162,69 @@
       color: rgba(255, 255, 255, 0.65);
     }
 
-    /* Background picker: cycles Auto → Spring → Autumn → Dry → Faded */
-    #bg-picker {
+    /* Tile with the background controls underneath */
+    .tile-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 228px;
+    }
+    .bg-controls { display: flex; gap: 8px; }
+    .bg-controls button {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       min-height: 44px;
-      padding: 0 20px;
+      padding: 0 14px;
       border-radius: 99px;
       border: 1px solid rgba(255, 255, 255, 0.16);
       background: rgba(10, 14, 24, 0.28);
       color: rgba(255, 255, 255, 0.88);
       font: inherit;
       font-size: 10px;
-      letter-spacing: var(--tracking);
+      letter-spacing: 0.18em;
       text-transform: uppercase;
       cursor: pointer;
       transition: border-color 0.2s ease, background 0.2s ease;
     }
-    #bg-picker:hover { border-color: rgba(255, 255, 255, 0.32); background: rgba(10, 14, 24, 0.4); }
-    #bg-picker:focus-visible { outline: none; border-color: rgba(255, 255, 255, 0.6); }
-    #bg-picker .bg-k { color: rgba(255, 255, 255, 0.55); }
+    .bg-controls button:hover { border-color: rgba(255, 255, 255, 0.32); background: rgba(10, 14, 24, 0.4); }
+    .bg-controls button:focus-visible { outline: none; border-color: rgba(255, 255, 255, 0.6); }
+
+    /* Scene: shows the current scene, click for the next one (turns Auto off) */
+    #bg-picker { flex: 1; min-width: 0; justify-content: space-between; }
+    #bg-picker .bg-k { font-size: 14px; letter-spacing: 0; color: rgba(255, 255, 255, 0.55); }
+    #bg-auto { flex: none; }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+    }
+
+    /* Auto: on/off switch — on, the scene follows the time of day */
+    .switch {
+      position: relative;
+      width: 24px;
+      height: 14px;
+      border-radius: 99px;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      transition: background 0.2s ease;
+    }
+    .switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.7);
+      transition: transform 0.2s ease, background 0.2s ease;
+    }
+    #bg-auto[aria-checked="true"] .switch { background: rgba(255, 255, 255, 0.85); border-color: transparent; }
+    #bg-auto[aria-checked="true"] .switch::after { transform: translateX(10px); background: #0b1020; }
 
   </style>
 </head>
@@ -202,6 +244,7 @@
     </div>
 
     <div class="bottom">
+      <div class="tile-stack">
       <a id="brain-widget" class="cover" title="Open dashboard">
         <div class="grain-layer"></div>
         <div class="tile-title">Brain health<br>last 7 days</div>
@@ -210,9 +253,15 @@
         <div class="tile-foot" id="state-sub"></div>
       </a>
 
-      <button id="bg-picker" type="button" title="Change background (Auto follows the time of day)">
-        <span class="bg-k">Background</span><span id="bg-name"></span>
-      </button>
+        <div class="bg-controls">
+          <button id="bg-picker" type="button" title="Next background">
+            <span><span class="sr-only">Scene: </span><span id="bg-name"></span></span><span class="bg-k" aria-hidden="true">›</span>
+          </button>
+          <button id="bg-auto" type="button" role="switch" aria-checked="true" title="Change the scene with the time of day">
+            <span>Auto</span><span class="switch" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
 
     </div>
   </div>
