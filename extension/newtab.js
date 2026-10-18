@@ -298,9 +298,7 @@ async function loadBrainScore() {
     tile.style.setProperty('--c2', state.aura[1]);
     document.getElementById('score-num').innerHTML = total > 0 ? `${pct}<small>%</small>` : '—';
     const stateName = document.getElementById('state-name');
-    stateName.innerHTML = total > 0
-      ? `<span class="state-dot" style="background:${state.color}"></span>${state.label}`
-      : 'No data yet';
+    stateName.textContent = total > 0 ? state.label : 'No data yet';
     stateName.style.color = total > 0 ? state.color : '';
     document.getElementById('levels').innerHTML = MINDMAP.levelsHTML(ratio, total > 0, false);
 
