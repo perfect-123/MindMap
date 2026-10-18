@@ -65,6 +65,36 @@ const MINDMAP = (() => {
     return STATES.find(s => ratio >= s.min);
   }
 
+  // ─── Level meter ──────────────────────────────────────────────────────────
+  // The four states as one bar, lowest first, each segment as wide as its
+  // range, with a mark at the score; with `legend`, a key of name + range.
+  // Returns markup (only fixed strings and numbers go in).
+  function levelRange(i, asc) {
+    const lo = Math.round(asc[i].min * 100);
+    const next = asc[i + 1] && Math.round(asc[i + 1].min * 100);
+    if (next == null) return `${lo}%+`;
+    return lo ? `${lo}–${next - 1}%` : `under ${next}%`;
+  }
+
+  function levelsHTML(ratio, has, legend) {
+    const asc = [...STATES].reverse();
+    const current = has ? brainState(ratio).key : null;
+    const segs = asc.map((s, i) => {
+      const width = ((asc[i + 1] ? asc[i + 1].min : 1) - s.min) * 100;
+      return `<i style="flex:${width};background:${s.color}"${s.key === current ? ' class="on"' : ''}></i>`;
+    }).join('');
+    const mark = has ? `<b style="left:${Math.min(100, ratio * 100).toFixed(1)}%"></b>` : '';
+    const ticks = asc.slice(1).map(s => `<span style="left:${s.min * 100}%">${Math.round(s.min * 100)}</span>`).join('');
+    const summary = asc.map((s, i) => `${s.label} ${levelRange(i, asc)}`).join(', ');
+    const you = has ? `. You: ${Math.round(ratio * 100)}%, ${brainState(ratio).label}` : '';
+    const key = legend ? `<div class="levels-key" aria-hidden="true">${asc.map((s, i) =>
+      `<span${s.key === current ? ' class="on"' : ''}><i style="background:${s.color}"></i><em style="color:${s.color}">${s.label}</em>${levelRange(i, asc)}</span>`).join('')}</div>` : '';
+    return `<div class="levels" role="img" aria-label="Levels: ${summary}${you}.">
+      <div class="levels-bar">${segs}${mark}</div>
+      <div class="levels-ticks">${ticks}</div>${key}
+    </div>`;
+  }
+
   // ─── Custom categories ────────────────────────────────────────────────────
   async function loadCategories() {
     const { custom_categories = [] } = await chrome.storage.local.get('custom_categories');
@@ -159,7 +189,7 @@ const MINDMAP = (() => {
     get CATEGORIES() { return categories; },
     get CATEGORY_KEYS() { return keys; },
     STATES, MAX_CUSTOM,
-    normalizeCategory, isLearning, brainState,
+    normalizeCategory, isLearning, brainState, levelsHTML,
     loadCategories, addCustomCategory, removeCustomCategory,
     getCategoryOverrides, setCategoryOverride, cleanDomain, readRows,
   };

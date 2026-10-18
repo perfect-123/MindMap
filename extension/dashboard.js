@@ -100,7 +100,8 @@ function renderCover(events7d) {
     <div class="grain-layer"></div>
     <div class="cover-title">The<br>last<br>seven<br>days</div>
     <div class="cover-score ghost">${has ? Math.round(ratio * 100) : '—'}<small>${has ? '%' : ''}</small></div>
-    <div class="cover-state"><span class="state-dot" style="background:${state.color}"></span>${has ? state.label : 'No data yet'}</div>
+    <div class="cover-state"${has ? ` style="color:${state.color}"` : ''}><span class="state-dot" style="background:${state.color}"></span>${has ? state.label : 'No data yet'}</div>
+    ${MINDMAP.levelsHTML(ratio, has, true)}
     <div class="cover-foot">
       <span>Learning share of<br><u>active time</u></span>
       <span style="text-align:right">${fmtTime(total(events7d))}<br><u>tracked</u></span>
