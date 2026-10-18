@@ -59,7 +59,7 @@ Reloading keeps your data. **Removing** the extension deletes it.
 ## Using It
 
 - **Your name**: click the greeting on the new tab, type your name and press Enter
-- **Favorites**: click **+** under the clock to add a site (address, optional name). Hover a tile to edit or remove it.; up to 8 sites
+- **Favorites**: click **+** under the clock to add a site (address, optional name). Hover a tile to edit or remove it; up to 8 sites. It starts with YouTube, LeetCode, X, GitHub and Spotify, and each tile's outline is faintly tinted with the site's category colour
 - **Dashboard**: click the brain-score tile on the new tab
 - **Fix a site's category**: in the dashboard, pick a different category next to any site in **Top Sites**, or use the **Categories** panel to assign any site. This re-labels that site's whole history
 - **Your own categories**: in the **Categories** panel, add up to three (e.g. "Job hunt") and choose whether each counts as learning
