@@ -50,6 +50,25 @@ const MINDMAP = (() => {
     { key: 'rotting',  label: 'Rotting',  min: 0,    color: '#888888', aura: ['#545b68', '#5e5650'] },
   ];
 
+  // New tab wallpapers (extension/wallpapers/*.png, made by tools/make_wallpapers.py).
+  // "brain" follows the 7-day brain state; Healthy uses Dusk.
+  const WALLPAPERS = [
+    { key: 'dusk',   label: 'Dusk' },
+    { key: 'ocean',  label: 'Ocean' },
+    { key: 'forest', label: 'Forest' },
+    { key: 'ember',  label: 'Ember' },
+    { key: 'mono',   label: 'Mono' },
+    { key: 'brain',  label: 'Brain' },
+  ];
+  const STATE_WALLPAPER = { thriving: 'thriving', healthy: 'dusk', sluggish: 'sluggish', rotting: 'rotting' };
+
+  // Wallpaper key (+ current state key for "brain") → image path
+  function wallpaperFile(key, stateKey) {
+    const name = key === 'brain' ? (STATE_WALLPAPER[stateKey] || 'dusk')
+      : WALLPAPERS.some(w => w.key === key) ? key : 'dusk';
+    return `wallpapers/${name}.png`;
+  }
+
   // Normalises a raw category value; unknown or "uncategorized" → "other"
   function normalizeCategory(raw) {
     const cat = (raw || '').toLowerCase().trim();
@@ -158,7 +177,7 @@ const MINDMAP = (() => {
   return {
     get CATEGORIES() { return categories; },
     get CATEGORY_KEYS() { return keys; },
-    STATES, MAX_CUSTOM,
+    STATES, MAX_CUSTOM, WALLPAPERS, wallpaperFile,
     normalizeCategory, isLearning, brainState,
     loadCategories, addCustomCategory, removeCustomCategory,
     getCategoryOverrides, setCategoryOverride, cleanDomain, readRows,

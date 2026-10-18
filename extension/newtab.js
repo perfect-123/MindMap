@@ -124,6 +124,7 @@ async function fetchScoreTotals() {
   return { total, learning };
 }
 
+// Returns the brain-state key ('thriving'…), or null when there's no data yet
 async function loadBrainScore() {
   try {
     const { total, learning } = await fetchScoreTotals();
@@ -142,11 +143,67 @@ async function loadBrainScore() {
     document.getElementById('state-sub').textContent = 'Learning share · open dashboard';
 
     document.getElementById('brain-widget').classList.add('loaded');
+    return total > 0 ? state.key : null;
   } catch (err) {
     console.warn('Brain score failed:', err);
     document.getElementById('state-name').textContent = 'Unavailable';
     document.getElementById('brain-widget').classList.add('loaded');
+    return null;
   }
+}
+
+// ── Wallpaper ────────────────────────────────────────────────────────────────
+// Saved in chrome.storage.local "wallpaper"; "brain" follows the 7-day state.
+const bg = document.getElementById('bg');
+let brainStateKey = null;
+
+function applyWallpaper(key) {
+  bg.style.backgroundImage = `url(${MINDMAP.wallpaperFile(key, brainStateKey)})`;
+  bg.classList.add('ready');
+  for (const opt of document.querySelectorAll('.wp-opt')) {
+    opt.setAttribute('aria-checked', String(opt.dataset.key === key));
+  }
+}
+
+function initWallpaperPicker(current) {
+  const btn = document.getElementById('wp-btn');
+  const panel = document.getElementById('wp-panel');
+  const grid = document.getElementById('wp-grid');
+
+  // Swatch images only load when the panel is first opened
+  grid.innerHTML = MINDMAP.WALLPAPERS.map(w => `
+    <button class="wp-opt" role="radio" data-key="${w.key}" aria-checked="${w.key === current}">
+      <span class="wp-swatch${w.key === 'brain' ? ' wp-brain' : ''}"></span>
+      <span class="wp-label">${w.label}</span>
+    </button>`).join('');
+
+  const setOpen = (open) => {
+    panel.hidden = !open;
+    btn.setAttribute('aria-expanded', String(open));
+    if (open) {
+      for (const s of grid.querySelectorAll('.wp-opt:not([data-key="brain"]) .wp-swatch')) {
+        s.style.backgroundImage ||= `url(${MINDMAP.wallpaperFile(s.parentElement.dataset.key)})`;
+      }
+    }
+  };
+  btn.addEventListener('click', () => setOpen(panel.hidden));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setOpen(false); });
+  document.addEventListener('click', (e) => { if (!e.target.closest('.wp')) setOpen(false); });
+
+  grid.addEventListener('click', async (e) => {
+    const opt = e.target.closest('.wp-opt');
+    if (!opt) return;
+    await chrome.storage.local.set({ wallpaper: opt.dataset.key });
+    applyWallpaper(opt.dataset.key);
+  });
+}
+
+async function initWallpaper() {
+  const { wallpaper = 'dusk' } = await chrome.storage.local.get('wallpaper');
+  initWallpaperPicker(wallpaper);
+  if (wallpaper !== 'brain') applyWallpaper(wallpaper);
+  brainStateKey = await loadBrainScore();
+  if (wallpaper === 'brain') applyWallpaper(wallpaper);
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
@@ -154,4 +211,4 @@ document.getElementById('brain-widget').addEventListener('click', () => {
   chrome.tabs.create({ url: DASHBOARD_URL });
 });
 initGreeting();
-loadBrainScore();
+initWallpaper(); // also loads the brain score
