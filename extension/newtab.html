@@ -29,7 +29,7 @@
       z-index: 3;
       height: 100vh;
       display: grid;
-      grid-template-rows: 1fr auto;
+      grid-template-rows: auto 1fr auto;
       padding: 36px 44px;
     }
 
@@ -80,64 +80,56 @@
     }
     .name-input::placeholder { color: rgba(255, 255, 255, 0.45); }
 
-    /* ── Favorites: letter tiles ───────────────────── */
+    /* ── Favorites: a quiet text row, top-right ─────── */
+    .top { display: flex; justify-content: flex-end; margin-top: -12px; }
     #fav-list {
       list-style: none;
       display: flex;
       flex-wrap: wrap;
-      justify-content: center;
-      gap: 14px;
-      max-width: min(800px, 90vw);
-      margin-top: 14px;
+      justify-content: flex-end;
+      column-gap: 30px;
+      max-width: 70vw;
     }
     .fav { position: relative; }
     .fav-link, .fav-add {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 10px;
-      width: 84px;
-      padding: 0;
+      position: relative;
+      display: block;
+      padding: 14px 0;                /* 44px tall to click */
       border: 0;
       background: none;
-      color: inherit;
+      color: rgba(255, 255, 255, 0.78);
       font: inherit;
+      font-size: 11px;
+      line-height: 16px;
+      letter-spacing: var(--tracking);
+      text-transform: uppercase;
       text-decoration: none;
+      white-space: nowrap;
       cursor: pointer;
       outline: none;
+      transition: color 0.2s ease;
     }
-    .fav-tile {
-      position: relative;
-      display: grid;
-      place-items: center;
-      width: 60px;
-      height: 60px;
-      border-radius: 18px;
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      background: rgba(10, 14, 24, 0.28);
-      transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+    .fav-link:hover, .fav-link:focus-visible, .fav-add:hover, .fav-add:focus-visible { color: #fff; }
+    .fav-add { font-size: 15px; letter-spacing: 0; color: rgba(255, 255, 255, 0.6); }
+    /* On hover, a faint underline in the site's category colour (--cat) */
+    .fav-link::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: var(--tracking);         /* skip the trailing letter-spacing */
+      bottom: 10px;
+      height: 1px;
+      background: var(--cat, #fff);
+      opacity: 0;
+      transform: scaleX(0.4);
+      transform-origin: left;
+      transition: opacity 0.2s ease, transform 0.2s ease;
     }
-    .fav-link:hover .fav-tile, .fav-add:hover .fav-tile { border-color: rgba(255, 255, 255, 0.36); background: rgba(10, 14, 24, 0.42); transform: translateY(-2px); }
-    .fav-link:focus-visible .fav-tile, .fav-add:focus-visible .fav-tile { border-color: rgba(255, 255, 255, 0.7); }
-    /* A site's tile: border faintly tinted with its category colour (--cat) */
-    .fav-link .fav-tile { border-color: color-mix(in srgb, var(--cat, #fff) 45%, transparent); }
-    .fav-link:hover .fav-tile { border-color: color-mix(in srgb, var(--cat, #fff) 80%, transparent); }
-    .fav-letter { font-size: 24px; font-weight: 300; line-height: 1; }
-    .fav-add .fav-letter { color: rgba(255, 255, 255, 0.6); }
-    .fav-name {
-      max-width: 84px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-size: 9px;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: rgba(255, 255, 255, 0.78);
-    }
-    /* Edit / remove: shown on hover or keyboard focus */
+    .fav-link:hover::after, .fav-link:focus-visible::after { opacity: 0.8; transform: none; }
+    /* Edit / remove: under the label, shown on hover or keyboard focus */
     .fav-btn {
       position: absolute;
-      top: -8px;
+      top: calc(100% - 8px);
       display: grid;
       place-items: center;
       width: 24px;
@@ -151,8 +143,8 @@
       opacity: 0;
       transition: opacity 0.15s ease;
     }
-    .fav-edit { left: 2px; }
-    .fav-remove { right: 2px; }
+    .fav-edit { left: calc(50% - 28px); }
+    .fav-remove { left: calc(50% + 4px); }
     .fav:hover .fav-btn, .fav:focus-within .fav-btn { opacity: 1; }
     .fav-btn:focus-visible { outline: none; border-color: rgba(255, 255, 255, 0.8); }
 
@@ -272,31 +264,30 @@
       gap: 10px;
       width: 228px;
     }
-    .bg-controls { display: flex; gap: 8px; }
+    /* Background controls: plain text, no pills */
+    .bg-controls { display: flex; align-items: center; gap: 22px; padding-left: 4px; }
     .bg-controls button {
       display: flex;
       align-items: center;
       gap: 10px;
       min-height: 44px;
-      padding: 0 14px;
-      border-radius: 99px;
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      background: rgba(10, 14, 24, 0.28);
-      color: rgba(255, 255, 255, 0.88);
+      padding: 0;
+      border: 0;
+      background: none;
+      color: rgba(255, 255, 255, 0.7);
       font: inherit;
       font-size: 10px;
-      letter-spacing: 0.18em;
+      letter-spacing: 0.22em;
       text-transform: uppercase;
       cursor: pointer;
-      transition: border-color 0.2s ease, background 0.2s ease;
+      outline: none;
+      transition: color 0.2s ease;
     }
-    .bg-controls button:hover { border-color: rgba(255, 255, 255, 0.32); background: rgba(10, 14, 24, 0.4); }
-    .bg-controls button:focus-visible { outline: none; border-color: rgba(255, 255, 255, 0.6); }
+    .bg-controls button:hover, .bg-controls button:focus-visible { color: #fff; }
+    .bg-controls button:focus-visible { text-decoration: underline; text-underline-offset: 6px; }
 
     /* Scene: shows the current scene, click for the next one (turns Auto off) */
-    #bg-picker { flex: 1; min-width: 0; justify-content: space-between; }
-    #bg-picker .bg-k { font-size: 14px; letter-spacing: 0; color: rgba(255, 255, 255, 0.55); }
-    #bg-auto { flex: none; }
+    #bg-picker .bg-k { font-size: 13px; letter-spacing: 0; color: rgba(255, 255, 255, 0.5); }
     .sr-only {
       position: absolute;
       width: 1px;
@@ -337,12 +328,15 @@
   <div class="grain"></div>
 
   <div id="content">
-    <div class="center">
-      <div id="clock"><span id="time-digits">--:--</span><span id="ampm"></span></div>
-      <div id="greeting"></div>
+    <header class="top">
       <nav aria-label="Favorites">
         <ul id="fav-list"></ul>
       </nav>
+    </header>
+
+    <div class="center">
+      <div id="clock"><span id="time-digits">--:--</span><span id="ampm"></span></div>
+      <div id="greeting"></div>
     </div>
 
     <div class="bottom">
@@ -383,10 +377,7 @@
 
   <template id="fav-template">
     <li class="fav">
-      <a class="fav-link">
-        <span class="fav-tile"><span class="fav-letter" aria-hidden="true"></span></span>
-        <span class="fav-name"></span>
-      </a>
+      <a class="fav-link"><span class="fav-name"></span></a>
       <button type="button" class="fav-btn fav-edit">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>
       </button>
@@ -398,10 +389,7 @@
 
   <template id="fav-add-template">
     <li class="fav">
-      <button type="button" class="fav-add">
-        <span class="fav-tile"><span class="fav-letter" aria-hidden="true">+</span></span>
-        <span class="fav-name">Add</span>
-      </button>
+      <button type="button" class="fav-add" aria-label="Add a favorite" title="Add a favorite">+</button>
     </li>
   </template>
 

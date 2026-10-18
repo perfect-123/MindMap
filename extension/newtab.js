@@ -167,10 +167,10 @@ function updateClock() {
 updateClock();
 setInterval(updateClock, 10_000);
 
-// ── Favorites — your own sites as letter tiles ──────────────────────────────
+// ── Favorites — your own sites as a text row, top-right ─────────────────────
 // Stored in chrome.storage.local "favorites" as [{ url, name }], up to FAV_MAX;
-// FAV_PRESETS until the user saves a list. Each tile's border is faintly
-// tinted with the site's category colour, by the same rules as the dashboard
+// FAV_PRESETS until the user saves a list. On hover each name gets a faint
+// underline in its site's category colour, by the same rules as the dashboard
 // (your site assignment first, then the built-in site list).
 const FAV_MAX = 8;
 const FAV_PRESETS = [
@@ -218,10 +218,9 @@ async function renderFavorites() {
     const li = document.getElementById('fav-template').content.firstElementChild.cloneNode(true);
     li.dataset.i = i;
     const color = categoryColor(fav.url, overrides);
-    if (color) li.querySelector('.fav-tile').style.setProperty('--cat', color);
+    if (color) li.querySelector('.fav-link').style.setProperty('--cat', color);
     li.querySelector('.fav-link').href = fav.url;
     li.querySelector('.fav-link').title = fav.url;
-    li.querySelector('.fav-letter').textContent = (fav.name.match(/[\p{L}\p{N}]/u) || ['•'])[0].toUpperCase();
     li.querySelector('.fav-name').textContent = fav.name;
     li.querySelector('.fav-edit').setAttribute('aria-label', `Edit ${fav.name}`);
     li.querySelector('.fav-remove').setAttribute('aria-label', `Remove ${fav.name}`);
