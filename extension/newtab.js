@@ -2,6 +2,20 @@
 
 const DASHBOARD_URL = chrome.runtime.getURL('dashboard.html');
 
+// ── Background — one momiji scene per brain state ───────────────────────────
+// The last state is cached in localStorage so the right scene is chosen before
+// first paint; loadBrainScore() corrects it once the score is known.
+const BG_KEY = 'mindmap_bg';
+const BG_STATES = ['thriving', 'healthy', 'sluggish', 'rotting'];
+
+function setBackground(key) {
+  if (!BG_STATES.includes(key)) key = 'healthy';
+  document.body.dataset.bg = key;
+  try { localStorage.setItem(BG_KEY, key); } catch {}
+}
+
+try { setBackground(localStorage.getItem(BG_KEY)); } catch { setBackground('healthy'); }
+
 // ── Greeting ─────────────────────────────────────────────────────────────────
 // Each greeting is [text, ending]; the name (if set) goes before the ending,
 // so "Still up?" becomes "Still up, Perfect?".
@@ -131,6 +145,7 @@ async function loadBrainScore() {
     const ratio = total > 0 ? learning / total : 0;
     const pct = Math.round(ratio * 100);
     const state = MINDMAP.brainState(ratio);
+    setBackground(total > 0 ? state.key : 'healthy');
 
     const tile = document.getElementById('brain-widget');
     tile.style.setProperty('--c1', state.aura[0]);

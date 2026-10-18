@@ -20,8 +20,8 @@ The extension runs during all of the user's browsing, so it must stay cheap. **B
 - `sites.js` — built-in site → category list (below).
 - `tracker.js` — the tracker (below).
 - `shared.js` — shared constants (below).
-- `newtab.html` / `newtab.js` — new tab override: ghosted clock, greeting, search bar, the fixed `aura.png` background, and the 7-day score as a small cover tile tinted by brain state (`MINDMAP.readRows(7)`). Clicking the tile opens `chrome.runtime.getURL('dashboard.html')`.
-- `aura.png` — the new tab background: a 44×54px, pre-blurred colour field (≈3 KB) baked from the reference design so only colour survives. Fixed by design — the background never changes. (Replaced the daily Unsplash photo; `background.js` clears the old `unsplash_cache` key on update.)
+- `newtab.html` / `newtab.js` — new tab override: ghosted clock, greeting, search bar, a momiji background picked by brain state, and the 7-day score as a small cover tile tinted by brain state (`MINDMAP.readRows(7)`). Clicking the tile opens `chrome.runtime.getURL('dashboard.html')`.
+- `backgrounds/momiji-<state>.webp` — the new tab backgrounds, one per brain state (1920×1200, 15–30 KB each): a blurred colour field with drawn Japanese maple leaves drifting down-left, their season following the state (spring green → autumn red → dry brown → ash grey). `newtab.js` sets `body[data-bg]` from the state cached in `localStorage` (`mindmap_bg`) before first paint and corrects it once the score loads; no data → healthy. They are rendered, not hand-edited: change `tools/momiji.html` and run `tools/render-momiji.js` (see its header). (Replaced `aura.png`, which replaced the daily Unsplash photo; `background.js` clears the old `unsplash_cache` key on update.)
 - `dashboard.html` / `dashboard.js` — reads the last 30 days via `MINDMAP.readRows(30)`; each row is `{ domain, cat, dur, dk, hour }`, the shape the chart renderers use. The Top Sites category badges are `<select>`s for correcting a site's category; changing one saves the override and re-runs `init()` (which destroys existing Chart instances first).
 - `vendor/chart.umd.js` — Chart.js 4.4.3 from npm, unmodified.
 - `theme.css` — shared look for both pages (below).
@@ -30,7 +30,7 @@ The extension runs during all of the user's browsing, so it must stay cheap. **B
 Modelled on a blurred album-art "now playing" screen: a sky-blue / rust aura fading to near-black, film grain, and wide-tracked uppercase monospace.
 - Tokens on `:root`: `--mono` (system monospace stack — no web fonts, no network), text `--ink/--ink-2/--ink-3`, `--surface`, `--hairline`, `--tracking` (0.32em), `--radius`.
 - `.aura` + `.grain` are fixed full-page layers (grain is an inline SVG `feTurbulence` data URI). `.cover` is a square card with its own two-tone blurred gradient set by `--c1/--c2` (each brain state's `aura` pair in `shared.js`), a smear band, and a `.grain-layer`. `.ghost` is the horizontal motion-blur text-shadow — use it on **one** hero number per page (clock on the new tab, score on the dashboard cover).
-- Everything is static: no animation loops, no network. The new tab stretches `aura.png` full-screen with `filter: blur(20px) saturate(1.3)`.
+- Everything is static: no animation loops, no network. The new tab shows one bundled image cover-fitted, with no CSS filter.
 - Charts follow the dataviz rules: text never wears a data colour (identity comes from a dot/key beside it), thin marks (≤24px columns, 2px line, 2px gaps between stacked segments, 4px rounded top only), solid hairline grids, a legend for ≥2 series and none for one, part-to-whole as a stacked bar (not a donut), and a single-hue sequential scale for the time-of-day heatmap.
 
 **Extension page CSP:** no inline `<script>` and no CDN scripts — all JS must be in files in the extension. (Network stylesheets/fonts would be allowed, but the pages deliberately use none.)
