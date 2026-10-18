@@ -12,13 +12,13 @@ Screen Time stops at the app level: it can tell you that you spent three hours i
 - **New tab page**: clock, greeting (click it to add your name), a search bar that uses your default search engine, a soft blurred aura background, and your 7-day brain score as an album-cover tile
 - **Dashboard**: today's "nutrition label", category breakdowns, weekly trends, a time-of-day heatmap, top sites and a learning streak
 
-Everything is stored locally in the browser. There's no account, no server and no AI service.
+Everything is stored locally in the browser. There's no account and no server.
 
 ---
 
 ## Brain States
 
-Based on the share of your active time over the last 7 days spent on **learning**, **productivity** and **news** sites:
+Based on the share of your active time over the last 7 days spent on **learning**, **productivity** and **news** sites (plus any custom category you mark as learning):
 
 | State | Condition |
 |---|---|
@@ -33,12 +33,36 @@ Pages are labelled Learning, Entertainment, Social Media, Productivity, News or 
 
 ## Install
 
-1. Clone the repo
-2. Go to `chrome://extensions` and turn on **Developer mode**
-3. Click **Load unpacked** and select the `extension/` folder
-4. Open a new tab. Click the brain score to open the dashboard
+MindMap isn't on the Chrome Web Store; you load it straight from this folder. It takes about a minute, with no build step and no API keys.
 
-No build step, no API keys.
+1. **Get the code**, either:
+   - `git clone https://github.com/perfect-123/MindMap.git`, or
+   - on GitHub, click **Code → Download ZIP** and unzip it
+2. Open `chrome://extensions` and turn on **Developer mode** (top right)
+3. Click **Load unpacked** and select the **`extension`** folder inside it (not the repo folder itself)
+4. Open a new tab. If Chrome asks whether to keep the changed new tab page, choose **Keep it**
+
+Keep the folder where it is: Chrome runs the extension from it.
+
+### Updating
+
+1. `git pull` (or download the ZIP again and replace the old folder)
+2. On `chrome://extensions`, click the ↻ reload icon on **MindMap Tracker**
+3. Open a fresh new tab
+
+Reloading keeps your data. **Removing** the extension deletes it.
+
+---
+
+## Using It
+
+- **Your name**: click the greeting on the new tab, type your name and press Enter
+- **Search**: the search bar uses your default search engine. Chrome puts the cursor in the address bar on a new tab, so click the search bar first
+- **Dashboard**: click the brain-score tile on the new tab
+- **Fix a site's category**: in the dashboard, pick a different category next to any site in **Top Sites**, or use the **Categories** panel to assign any site. This re-labels that site's whole history
+- **Your own categories**: in the **Categories** panel, add up to three (e.g. "Job hunt") and choose whether each counts as learning
+- **Hide Chrome's footer**: Chrome adds a "MindMap Tracker · Customize Chrome" bar to extension new tabs. Right-click it to hide it, or turn off **Show footer on New tab page** under **Customize Chrome**
+- **Startup warning**: Chrome may occasionally warn about developer-mode extensions. Dismiss it to keep MindMap running
 
 ---
 
@@ -76,10 +100,6 @@ extension/
 
 ---
 
-## History
+## Credits
 
-MindMap started as a hackathon project ([prospersa1/MindMap](https://github.com/prospersa1/MindMap)) with a Supabase backend, Gemini classification and an AR brain viewer for phones. This fork drops those for a simpler, private, local-only extension.
-
-**Original team:** Perfect (Chrome extension & AI integration), Prosper (dashboard & Supabase backend), Derrick (AR brain experience).
-
-**AI tools used (per MLH transparency rules):** Claude (Anthropic) for code assistance; Google Gemini API for page classification in the hackathon version.
+Forked from [prospersa1/MindMap](https://github.com/prospersa1/MindMap), a hackathon project.
