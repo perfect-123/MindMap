@@ -300,7 +300,6 @@ async function loadBrainScore() {
     document.getElementById('state-name').innerHTML = total > 0
       ? `<span class="state-dot" style="background:${state.color}"></span>${state.label}`
       : 'No data yet';
-    document.getElementById('state-sub').textContent = 'Learning share · open dashboard';
 
     document.getElementById('brain-widget').classList.add('loaded');
   } catch (err) {
