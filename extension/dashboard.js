@@ -1,7 +1,11 @@
 // ─── Config (shared constants live in shared.js) ───────────────────────────
-const CATS      = MINDMAP.CATEGORY_KEYS;
-const CAT_COLOR = Object.fromEntries(MINDMAP.CATEGORIES.map(c => [c.key, c.color]));
-const CAT_LABEL = Object.fromEntries(MINDMAP.CATEGORIES.map(c => [c.key, c.label]));
+// Built-in + your custom categories; refreshed on every init()
+let CATS, CAT_COLOR, CAT_LABEL;
+function syncCategories() {
+  CATS      = MINDMAP.CATEGORY_KEYS;
+  CAT_COLOR = Object.fromEntries(MINDMAP.CATEGORIES.map(c => [c.key, c.color]));
+  CAT_LABEL = Object.fromEntries(MINDMAP.CATEGORIES.map(c => [c.key, c.label]));
+}
 
 const INK   = '#f3f1ee';
 const INK_2 = 'rgba(243, 241, 238, 0.68)';
@@ -132,7 +136,7 @@ function renderToday(todayEvents) {
     <div class="kpi-sub">active time · ${Math.round(learningRatio(todayEvents) * 100)}% learning</div>
     <div class="stack" role="img" aria-label="Share of today's time by category">${segments}</div>
     <table class="rows">${rows}</table>
-    <div class="footnote">Learning = learning + productivity + news</div>`;
+    <div class="footnote">Learning = ${MINDMAP.CATEGORIES.filter(c => c.learning).map(c => c.label.toLowerCase()).join(' + ')}</div>`;
 }
 
 // ─── 3. WEEK — stacked columns by category ─────────────────────────────────
@@ -373,11 +377,97 @@ function renderSites(events7d) {
     <table class="sites">${rows}</table>`;
 }
 
+// ─── 8. CATEGORIES — your own categories and site assignments ──────────────
+function renderCategories() {
+  const el = document.getElementById('categories');
+  const custom = MINDMAP.CATEGORIES.filter(c => c.key.startsWith('custom:'));
+  const full = custom.length >= MINDMAP.MAX_CUSTOM;
+
+  const list = MINDMAP.CATEGORIES.map(c => `
+    <li>
+      <span class="key" style="background:${c.color}"></span>
+      <span class="cat-name">${c.label}</span>
+      <span class="cat-kind">${c.learning ? 'Counts as learning' : 'Not learning'}</span>
+      ${c.key.startsWith('custom:') ? `<button class="x" data-remove="${c.key}" title="Delete category">×</button>` : '<span class="cat-kind">Built-in</span>'}
+    </li>`).join('');
+
+  const options = CATS.map(c => `<option value="${c}">${CAT_LABEL[c]}</option>`).join('');
+  const rules = Object.entries(overrides).sort(([a], [b]) => a.localeCompare(b)).map(([domain, cat]) => `
+    <li>
+      <span class="cat-name">${domain}</span>
+      ${categoryPicker(domain, MINDMAP.normalizeCategory(cat))}
+      <button class="x" data-unassign="${domain}" title="Back to automatic">×</button>
+    </li>`).join('');
+
+  el.innerHTML = `
+    <span class="label">Categories · your own categories and site assignments</span>
+    <div class="cat-grid">
+      <div>
+        <ul class="cat-list">${list}</ul>
+        <form class="inline" id="add-cat">
+          <input name="label" placeholder="New category" maxlength="24" ${full ? 'disabled' : ''} />
+          <label class="check"><input type="checkbox" name="learning" ${full ? 'disabled' : ''} /> Counts as learning</label>
+          <button ${full ? 'disabled' : ''}>Add</button>
+        </form>
+        <div class="hint">${full ? `Up to ${MINDMAP.MAX_CUSTOM} custom categories, so colours stay easy to tell apart` : `${MINDMAP.MAX_CUSTOM - custom.length} of ${MINDMAP.MAX_CUSTOM} custom categories left`}</div>
+      </div>
+      <div>
+        <form class="inline" id="assign">
+          <input name="domain" placeholder="Site, e.g. canvas.uci.edu" />
+          <select name="cat" class="picker plain">${options}</select>
+          <button>Assign</button>
+        </form>
+        <div class="hint" id="cat-msg">Assigning a site re-labels all of its history</div>
+        <ul class="cat-list rules">${rules || '<li class="none">No site assignments yet</li>'}</ul>
+      </div>
+    </div>`;
+
+  const msg = text => { document.getElementById('cat-msg').textContent = text; };
+
+  el.onsubmit = async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    try {
+      if (f.id === 'add-cat') {
+        await MINDMAP.addCustomCategory(f.label.value, f.learning.checked);
+      } else {
+        const domain = MINDMAP.cleanDomain(f.domain.value);
+        if (!domain) return msg('Enter a site like canvas.uci.edu');
+        await MINDMAP.setCategoryOverride(domain, f.cat.value);
+      }
+      init();
+    } catch (err) {
+      msg(err.message);
+    }
+  };
+
+  el.onclick = async (e) => {
+    const b = e.target.closest('button.x');
+    if (!b) return;
+    if (b.dataset.remove) {
+      const name = CAT_LABEL[b.dataset.remove];
+      if (!confirm(`Delete "${name}"? Sites assigned to it go back to their automatic category.`)) return;
+      await MINDMAP.removeCustomCategory(b.dataset.remove);
+    } else {
+      await MINDMAP.setCategoryOverride(b.dataset.unassign, null);
+    }
+    init();
+  };
+
+  // Changing an existing assignment's dropdown
+  el.onchange = async (e) => {
+    if (!e.target.matches('.rules .picker')) return;
+    await MINDMAP.setCategoryOverride(e.target.dataset.domain, e.target.value || null);
+    init();
+  };
+}
+
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
 async function init() {
   Object.values(Chart.instances).forEach(chart => chart.destroy()); // re-render safely
   try {
-    const events = await loadEvents();
+    const events = await loadEvents();   // also loads your custom categories
+    syncCategories();
     const events7d = last7(events);
 
     renderCover(events7d);
@@ -387,6 +477,7 @@ async function init() {
     renderStreak(events);
     renderHeatmap(events7d);
     renderSites(events7d);
+    renderCategories();
 
     document.getElementById('updated').textContent =
       `Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;

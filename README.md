@@ -27,7 +27,7 @@ Based on the share of your active time over the last 7 days spent on **learning*
 | 🟫 Sluggish | ≥15% |
 | ⬛ Rotting | <15% |
 
-Pages are labelled Learning, Entertainment, Social Media, Productivity, News or Other by local keyword rules (domain first, then page title).
+Pages are labelled Learning, Entertainment, Social Media, Productivity, News or Other using a built-in list of ~200 sites (Canvas, LeetCode, Canva, Google Docs, YouTube…) and page-title keywords. In the dashboard's **Categories** panel you can assign any site to any category, and create up to three categories of your own, choosing whether each counts as learning.
 
 ---
 
@@ -47,7 +47,8 @@ No build step, no API keys.
 ```
 extension/
   manifest.json          → MV3 manifest
-  background.js          → Service worker entry + keyword classifier
+  background.js          → Service worker entry + classifier
+  sites.js               → Built-in site → category list
   tracker.js             → Active-time tracker (idle-aware), daily totals in chrome.storage.local
   shared.js              → Shared constants (categories, colours, brain-state thresholds)
   newtab.html / .js      → New tab page
@@ -69,7 +70,7 @@ extension/
 
 ## Known Limitations
 
-- Keyword classification is rough on mixed sites like YouTube. You can correct a site from the dashboard's Top Sites table (the week's top 10), which re-labels its whole history
+- Mixed sites like YouTube are labelled from the page title, which is rough. Assign a site to a category in the dashboard to override it for its whole history
 - Watching or reading something silently for more than 5 minutes without input counts as idle
 - If Chrome crashes, the time since the last tab switch is lost
 

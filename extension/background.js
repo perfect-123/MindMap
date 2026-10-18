@@ -1,43 +1,28 @@
 // Service worker entry point. All tracking lives in tracker.js.
-importScripts("shared.js", "tracker.js");
+importScripts("sites.js", "shared.js", "tracker.js");
 
 // The new tab no longer fetches a daily Unsplash photo; drop its old cache
 chrome.runtime.onInstalled.addListener(() => chrome.storage.local.remove("unsplash_cache"));
 
-// ─── Keyword classification ─────────────────────────────────────────────────
-// Free and local: labels a page from its domain, then its title.
+// ─── Classification ─────────────────────────────────────────────────────────
+// Free and local. The site list (sites.js) decides first; for unknown or
+// "mixed" sites (YouTube…) title keywords get a say; mixed sites then fall
+// back to their default, everything else to "other".
 function classifyLocally(url, title) {
-  let domain = "";
+  let host = "";
   try {
-    domain = new URL(url).hostname.replace(/^www\./, "");
+    host = new URL(url).hostname;
   } catch (_) {}
-  const text = (domain + " " + title).toLowerCase();
 
-  const SOCIAL =
-    /\b(twitter\.com|x\.com|instagram\.com|facebook\.com|tiktok\.com|linkedin\.com|reddit\.com|snapchat\.com|pinterest\.com|threads\.net)\b/;
-  const NEWS =
-    /\b(bbc\.(co\.uk|com)|cnn\.com|nytimes\.com|reuters\.com|theguardian\.com|washingtonpost\.com|bloomberg\.com|apnews\.com|aljazeera\.com|techcrunch\.com|theverge\.com|wired\.com)\b/;
-  const LEARN =
-    /\b(wikipedia\.org|stackoverflow\.com|github\.com|docs\.|coursera\.org|udemy\.com|khanacademy\.org|edx\.org|medium\.com|dev\.to|freecodecamp\.org|w3schools\.com|mdn\b|developer\.|learn\.|education)\b/;
-  const PROD =
-    /\b(gmail\.com|notion\.so|slack\.com|jira\.|linear\.app|figma\.com|docs\.google\.com|sheets\.google\.com|trello\.com|asana\.com|calendar\.google\.com|outlook\.(com|office\.com))\b/;
-  const ENTERTAIN =
-    /\b(netflix\.com|twitch\.tv|spotify\.com|soundcloud\.com|9gag\.com|imgur\.com|primevideo\.com|disneyplus\.com|hulu\.com)\b/;
+  const site = MINDMAP_SITES.lookup(host);
+  if (site && !site.mixed) return site.category;
 
-  if (SOCIAL.test(domain)) return "social media";
-  if (NEWS.test(domain)) return "news";
-  if (ENTERTAIN.test(domain)) return "entertainment";
-  if (PROD.test(domain)) return "productivity";
-  if (LEARN.test(domain)) return "learning";
-
-  if (
-    /tutorial|course|lecture|documentation|how[ -]to|explained?|guide|learn\b/.test(
-      text,
-    )
-  )
+  const text = (title || "").toLowerCase();
+  if (/tutorial|course|lecture|lesson|documentation|how[ -]to|explained?|guide|learn\b|crash course|walkthrough/.test(text))
     return "learning";
-  if (/breaking news|headlines|politics|report\b/.test(text)) return "news";
-  if (/\bgame\b|gaming|meme|funny|comedy/.test(text)) return "entertainment";
+  if (/breaking news|headlines|politics|live updates/.test(text)) return "news";
+  if (/\bgame\b|gaming|meme|funny|comedy|music video|trailer|highlights/.test(text))
+    return "entertainment";
 
-  return "other";
+  return site ? site.category : "other";
 }
