@@ -129,21 +129,6 @@
     .chart { position: relative; height: 280px; }
     .chart.short { height: 240px; }
 
-    /* ── Heatmap ─────────────────────────────────────── */
-    .heatmap {
-      display: grid;
-      grid-template-columns: 54px repeat(24, minmax(0, 1fr));
-      gap: 2px;
-      align-items: center;
-    }
-    .hm-h { font-size: 9px; color: var(--ink-3); text-align: center; letter-spacing: 0.08em; height: 18px; }
-    .hm-d { font-size: 10px; color: var(--ink-3); letter-spacing: 0.16em; text-transform: uppercase; }
-    .hm-c { height: 24px; border-radius: 3px; background: rgba(255, 255, 255, 0.035); }
-    .hm-c[data-tip]:hover { outline: 1px solid rgba(255, 255, 255, 0.6); }
-    .scale { display: flex; align-items: center; gap: 4px; margin-top: 18px; justify-content: flex-end; }
-    .scale span { font-size: 10px; letter-spacing: 0.2em; color: var(--ink-3); text-transform: uppercase; margin: 0 8px; }
-    .scale i { width: 18px; height: 10px; border-radius: 2px; display: block; }
-
     /* ── Streak ──────────────────────────────────────── */
     .streak-nums { display: flex; gap: 48px; margin-bottom: 26px; }
     .streak-nums .kpi { font-size: 48px; }
@@ -243,8 +228,6 @@
       <section class="card" id="trend"></section>
       <section class="card" id="streak"></section>
     </div>
-
-    <section class="card row" id="heatmap"></section>
 
     <section class="card row" id="sites"></section>
 

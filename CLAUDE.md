@@ -7,7 +7,7 @@ MindMap is a Chrome extension that shows how you spend your time online: how muc
 |---|---|---|
 | Tracker | `extension/tracker.js` + `background.js` | Counts active time per site/category, stores daily totals locally |
 | New tab | `extension/newtab.html` / `newtab.js` | Clock, greeting, favorites, momiji background (time of day or picked), 7-day brain score. Planned to grow into a "good morning"-style page |
-| Dashboard | `extension/dashboard.html` / `dashboard.js` | Category breakdowns, weekly trends, time-of-day heatmap, top sites, streak |
+| Dashboard | `extension/dashboard.html` / `dashboard.js` | Category breakdowns, weekly trends, top sites, streak (the time-of-day heatmap was removed as unactionable) |
 
 This repo is a fork of `prospersa1/MindMap` (a hackathon project). The fork dropped Supabase, the AR brain viewer, the landing page and Gemini classification — see git history before commit "Phase 3" for those.
 
@@ -31,7 +31,7 @@ Modelled on a blurred album-art "now playing" screen: a sky-blue / rust aura fad
 - Tokens on `:root`: `--mono` (system monospace stack — no web fonts, no network), text `--ink/--ink-2/--ink-3`, `--surface`, `--hairline`, `--tracking` (0.32em), `--radius`.
 - `.aura` + `.grain` are fixed full-page layers (grain is an inline SVG `feTurbulence` data URI). `.cover` is a square card with its own two-tone blurred gradient set by `--c1/--c2` (each brain state's `aura` pair in `shared.js`), a smear band, and a `.grain-layer`. `.ghost` is the horizontal motion-blur text-shadow — use it on **one** hero number per page (the clock on the new tab, the score on the dashboard cover). On the new tab the clock uses the same `.ghost` as the dashboard score, `clamp(4.5rem, 12vw, 8.5rem)`; the greeting is 13px.
 - Everything is static: no animation loops, no network. The new tab shows one bundled image cover-fitted, with no CSS filter.
-- Charts follow the dataviz rules: text never wears a data colour (identity comes from a dot/key beside it), thin marks (≤24px columns, 2px line, 2px gaps between stacked segments, 4px rounded top only), solid hairline grids, a legend for ≥2 series and none for one, part-to-whole as a stacked bar (not a donut), and a single-hue sequential scale for the time-of-day heatmap.
+- Charts follow the dataviz rules: text never wears a data colour (identity comes from a dot/key beside it), thin marks (≤24px columns, 2px line, 2px gaps between stacked segments, 4px rounded top only), solid hairline grids, a legend for ≥2 series and none for one, and part-to-whole as a stacked bar (not a donut).
 
 **Extension page CSP:** no inline `<script>` and no CDN scripts — all JS must be in files in the extension. (Network stylesheets/fonts would be allowed, but the pages deliberately use none.)
 

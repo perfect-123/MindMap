@@ -11,7 +11,6 @@ const INK   = '#f3f1ee';
 const INK_2 = 'rgba(243, 241, 238, 0.68)';
 const INK_3 = 'rgba(243, 241, 238, 0.44)';
 const GRID  = 'rgba(255, 255, 255, 0.07)';
-const HEAT  = '#3987e5';   // single sequential hue for the heatmap
 
 Chart.defaults.font.family = getComputedStyle(document.body).getPropertyValue('--mono');
 Chart.defaults.font.size = 10;
@@ -286,47 +285,7 @@ function renderStreak(events) {
     <div class="legend"><span><i style="background:#199e70"></i>≥${healthy * 100}% learning</span><span><i style="background:rgba(255,255,255,.06)"></i>Below / no data</span></div>`;
 }
 
-// ─── 6. HEATMAP — when you're online (single-hue intensity) ────────────────
-function renderHeatmap(events7d) {
-  const days = lastNDays(7);
-  const H = ['12a','1a','2a','3a','4a','5a','6a','7a','8a','9a','10a','11a','12p','1p','2p','3p','4p','5p','6p','7p','8p','9p','10p','11p'];
-
-  const grid = {};  // grid[dk][hour] = { cat: secs }
-  for (const ev of events7d) {
-    grid[ev.dk] ??= {};
-    grid[ev.dk][ev.hour] ??= {};
-    grid[ev.dk][ev.hour][ev.cat] = (grid[ev.dk][ev.hour][ev.cat] || 0) + ev.dur;
-  }
-  const cellTotal = (dk, h) => Object.values(grid[dk]?.[h] || {}).reduce((a, b) => a + b, 0);
-  let max = 1;
-  for (const dk of days) for (let h = 0; h < 24; h++) max = Math.max(max, cellTotal(dk, h));
-
-  // Sequential: one hue, more time = more opaque (sqrt keeps short hours visible)
-  const alpha = v => (0.18 + 0.82 * Math.sqrt(v / max)).toFixed(2);
-  const hex = a => Math.round(a * 255).toString(16).padStart(2, '0');
-
-  let html = '<div></div>' + H.map((l, h) => `<div class="hm-h">${h % 3 === 0 ? l : ''}</div>`).join('');
-  for (const dk of days) {
-    const d = new Date(dk + 'T12:00');
-    const wday = d.toLocaleDateString('en-US', { weekday: 'short' });
-    html += `<div class="hm-d">${wday}</div>`;
-    for (let h = 0; h < 24; h++) {
-      const v = cellTotal(dk, h);
-      if (!v) { html += '<div class="hm-c"></div>'; continue; }
-      const top = Object.entries(grid[dk][h]).sort((a, b) => b[1] - a[1])[0][0];
-      const tip = `${wday} ${H[h]} · ${fmtTime(v)} · mostly ${CAT_LABEL[top]}`;
-      html += `<div class="hm-c" data-tip style="background:${HEAT}${hex(alpha(v))}" title="${tip}"></div>`;
-    }
-  }
-  const steps = [0.1, 0.3, 0.55, 0.8, 1].map(f => `<i style="background:${HEAT}${hex(alpha(f * max))}"></i>`).join('');
-
-  document.getElementById('heatmap').innerHTML = `
-    <span class="label">When you're online · last 7 days</span>
-    <div class="heatmap">${html}</div>
-    <div class="scale"><span>Less</span>${steps}<span>More</span></div>`;
-}
-
-// ─── 7. TOP SITES — with category correction ───────────────────────────────
+// ─── 6. TOP SITES — with category correction ───────────────────────────────
 function categoryPicker(domain, cat) {
   const options = CATS.map(c =>
     `<option value="${c}"${c === cat ? ' selected' : ''}>${CAT_LABEL[c]}</option>`).join('');
@@ -377,7 +336,7 @@ function renderSites(events7d) {
     <table class="sites">${rows}</table>`;
 }
 
-// ─── 8. CATEGORIES — your own categories and site assignments ──────────────
+// ─── 7. CATEGORIES — your own categories and site assignments ──────────────
 function renderCategories() {
   const el = document.getElementById('categories');
   const custom = MINDMAP.CATEGORIES.filter(c => c.key.startsWith('custom:'));
@@ -475,7 +434,6 @@ async function init() {
     renderWeek(events7d);
     renderTrend(events);
     renderStreak(events);
-    renderHeatmap(events7d);
     renderSites(events7d);
     renderCategories();
 

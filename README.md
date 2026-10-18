@@ -10,7 +10,7 @@ Screen Time stops at the app level: it can tell you that you spent three hours i
 
 - **Silent tracking**: counts active time per site, pausing when you're idle or away from Chrome
 - **New tab page**: clock, greeting (click it to add your name), your favorite sites as a small text row in the top-right corner, a momiji (Japanese maple) background in four seasons (spring, autumn, dry, faded) that changes with the time of day (or turn Auto off and pick a scene under the brain-health tile), and your 7-day brain score as an album-cover tile
-- **Dashboard**: today's "nutrition label", category breakdowns, weekly trends, a time-of-day heatmap, top sites and a learning streak
+- **Dashboard**: today's "nutrition label", category breakdowns, weekly trends, top sites and a learning streak
 
 Everything is stored locally in the browser. There's no account and no server.
 
