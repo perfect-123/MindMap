@@ -6,7 +6,7 @@ MindMap is a Chrome extension that shows how you spend your time online: how muc
 | Part | Files | What it does |
 |---|---|---|
 | Tracker | `extension/tracker.js` + `background.js` | Counts active time per site/category, stores daily totals locally |
-| New tab | `extension/newtab.html` / `newtab.js` | Clock, greeting, search bar, scene background (time of day or picked), 7-day brain score. Planned to grow into a "good morning"-style page |
+| New tab | `extension/newtab.html` / `newtab.js` | Clock, greeting, favorites, scene background (time of day or picked), 7-day brain score. Planned to grow into a "good morning"-style page |
 | Dashboard | `extension/dashboard.html` / `dashboard.js` | Category breakdowns, weekly trends, time-of-day heatmap, top sites, streak |
 
 This repo is a fork of `prospersa1/MindMap` (a hackathon project). The fork dropped Supabase, the AR brain viewer, the landing page and Gemini classification — see git history before commit "Phase 3" for those.
@@ -15,12 +15,12 @@ This repo is a fork of `prospersa1/MindMap` (a hackathon project). The fork drop
 The extension runs during all of the user's browsing, so it must stay cheap. **Before building any feature, alert the user if it adds unnecessary compute or network work to normal browsing** — e.g. per-tab or per-page-load work, content scripts injected into pages, background timers/polling, extra API calls, or heavy rendering on the new tab page. Say what it costs and suggest a cheaper alternative (caching, batching, doing it only on demand). The dashboard only runs when opened, so this matters less there.
 
 ## Files (`extension/`)
-- `manifest.json` — MV3. Permissions: `tabs`, `storage`, `windows`, `idle`, `search`; no host permissions.
+- `manifest.json` — MV3. Permissions: `tabs`, `storage`, `windows`, `idle`; no host permissions. (`search` was dropped with the search bar.)
 - `background.js` — service worker entry: loads `sites.js` + `shared.js` + `tracker.js`, defines `classifyLocally()`.
 - `sites.js` — built-in site → category list (below).
 - `tracker.js` — the tracker (below).
 - `shared.js` — shared constants (below).
-- `newtab.html` / `newtab.js` — new tab override: ghosted clock, greeting, search bar, a scene background (by time of day, or picked with the controls under the tile), and the 7-day score as a small cover tile tinted by brain state (`MINDMAP.readRows(7)`). Clicking the tile opens `chrome.runtime.getURL('dashboard.html')`.
+- `newtab.html` / `newtab.js` — new tab override: ghosted clock, greeting, favorites (letter tiles), a scene background (by time of day, or picked with the controls under the tile), and the 7-day score as a small cover tile tinted by brain state (`MINDMAP.readRows(7)`). Clicking the tile opens `chrome.runtime.getURL('dashboard.html')`.
 - `backgrounds/<scene>.webp` — the new tab backgrounds, supplied by the user as JPEGs and converted to WebP (2000×1125, 20–40 KB each): `blossom` (pink cherry petals), `green` (green maple leaves), `autumn` (warm falling leaves), `fireflies` (dusk over grass), `snow` (aurora and snowfall). The background does **not** follow brain state. Under the brain-health tile: a **Scene** button that steps through `SCENES` in `newtab.js` (picking one turns Auto off) and an **Auto** on/off switch (`role="switch"`; turning it off keeps the scene showing). Saved in `localStorage` `mindmap_bg_mode` as `'auto'` or a scene key (synchronous, so `body[data-bg]` is set before first paint; an unknown key falls back to Auto). Auto follows the time of day — 5–9 Blossom, 9–13 Green, 13–17 Autumn, 17–21 Fireflies, 21–5 Snow — and is re-checked on the clock's 10 s tick, so an open tab changes scene at the boundary. To add a scene: drop a WebP in `backgrounds/`, add a `body[data-bg=…]` rule in `newtab.html` and an entry in `SCENES` (and `sceneForHour()` if Auto should use it). (Replaced the generated momiji scenes, which replaced `aura.png` and before that the daily Unsplash photo; `background.js` clears the old `unsplash_cache` key on update.)
 - `dashboard.html` / `dashboard.js` — reads the last 30 days via `MINDMAP.readRows(30)`; each row is `{ domain, cat, dur, dk, hour }`, the shape the chart renderers use. The Top Sites category badges are `<select>`s for correcting a site's category; changing one saves the override and re-runs `init()` (which destroys existing Chart instances first).
 - `vendor/chart.umd.js` — Chart.js 4.4.3 from npm, unmodified.
@@ -79,4 +79,4 @@ There is no build step or test suite. To try it: `chrome://extensions` → Devel
 ### New tab details
 - **Greetings:** `GREETINGS` entries are `[text, ending]`; the name goes before the ending ("Still up, Perfect?"), and is left out when unset. One is picked per tab by time of day.
 - **Name:** stored in `chrome.storage.local` `user_name`. Clicking the greeting turns it into an inline input (Enter/blur saves, Escape cancels).
-- **Search:** `chrome.search.query()` (needs the `search` permission) sends the query to the user's default search engine in the current tab; nothing runs until submit. Chrome keeps focus in the address bar on a new tab, so the box can't autofocus.
+- **Favorites** (replaced the search bar): the user's own sites, `chrome.storage.local` `favorites` = `[{ url, name }]`, max 8 (`FAV_MAX`). Rendered as letter tiles (first letter of the name, no favicons — no network) from the `<template>`s in `newtab.html`; text goes in via `textContent`. The "+" tile and each tile's edit button open a `<dialog>` form; `normalizeUrl()` adds `https://` when missing and accepts **only http(s)** addresses (so a tile can never be `javascript:`); an empty name defaults to the domain's main word. Each tile's dot is the site's category — your site assignment, else `MINDMAP_SITES.lookup()`, else other — with the label in the dot's tooltip and in screen-reader text.
