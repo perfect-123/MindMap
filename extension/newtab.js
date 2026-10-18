@@ -2,24 +2,26 @@
 
 const DASHBOARD_URL = chrome.runtime.getURL('dashboard.html');
 
-// ── Background — one momiji scene, by time of day or picked by the user ─────
+// ── Background — one scene, by time of day or picked by the user ────────────
 // The choice lives in localStorage (synchronous, so the scene is set before
 // first paint): 'auto', or the key of the scene the user picked. Under the
 // tile, the Scene button steps through SCENES and the Auto switch toggles.
 const BG_MODE_KEY = 'mindmap_bg_mode';
 const SCENES = [
-  { key: 'thriving', label: 'Spring' },
-  { key: 'healthy',  label: 'Autumn' },
-  { key: 'sluggish', label: 'Dry' },
-  { key: 'rotting',  label: 'Faded' },
+  { key: 'blossom',   label: 'Blossom' },
+  { key: 'green',     label: 'Green' },
+  { key: 'autumn',    label: 'Autumn' },
+  { key: 'fireflies', label: 'Fireflies' },
+  { key: 'snow',      label: 'Snow' },
 ];
 
-// Auto follows the day: fresh morning, hazy afternoon, golden evening, dim night
+// Auto follows the day: pink dawn, fresh morning, warm afternoon, dusk, night
 function sceneForHour(h24) {
-  if (h24 >= 5  && h24 < 12) return 'thriving';
-  if (h24 >= 12 && h24 < 17) return 'sluggish';
-  if (h24 >= 17 && h24 < 21) return 'healthy';
-  return 'rotting';
+  if (h24 >= 5  && h24 < 9)  return 'blossom';
+  if (h24 >= 9  && h24 < 13) return 'green';
+  if (h24 >= 13 && h24 < 17) return 'autumn';
+  if (h24 >= 17 && h24 < 21) return 'fireflies';
+  return 'snow';
 }
 
 let bgMode = 'auto';

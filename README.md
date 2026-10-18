@@ -9,7 +9,7 @@
 Screen Time stops at the app level: it can tell you that you spent three hours in Chrome, but not whether that was a course, the news, or endless scrolling. MindMap is a Chrome extension that fills that gap:
 
 - **Silent tracking**: counts active time per site, pausing when you're idle or away from Chrome
-- **New tab page**: clock, greeting (click it to add your name), a search bar that uses your default search engine, a momiji (Japanese maple) background that changes with the time of day (or turn Auto off and pick a scene under the brain-health tile), and your 7-day brain score as an album-cover tile
+- **New tab page**: clock, greeting (click it to add your name), a search bar that uses your default search engine, a background scene (blossom, green leaves, autumn, fireflies, snow) that changes with the time of day (or turn Auto off and pick a scene under the brain-health tile), and your 7-day brain score as an album-cover tile
 - **Dashboard**: today's "nutrition label", category breakdowns, weekly trends, a time-of-day heatmap, top sites and a learning streak
 
 Everything is stored locally in the browser. There's no account and no server.
@@ -80,7 +80,7 @@ extension/
   newtab.html / .js      → New tab page
   dashboard.html / .js   → Dashboard
   theme.css              → Shared look: blurred aura, film grain, monospace type
-  backgrounds/           → New tab backgrounds: four momiji scenes
+  backgrounds/           → New tab background scenes
   vendor/chart.umd.js    → Chart.js 4.4.3
 ```
 

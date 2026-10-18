@@ -8,19 +8,20 @@
   <style>
     body { height: 100vh; overflow: hidden; }
 
-    /* ── Background: one momiji scene ─────────────────
-       backgrounds/momiji-<scene>.webp, 1920×1200, 15–30 KB each, bundled.
+    /* ── Background: one scene ─────────────────────────
+       backgrounds/<scene>.webp, 2000×1125, 20–40 KB each, bundled.
        newtab.js sets body[data-bg] before first paint, by time of day or the
        user's pick. Static: no network, no animation, no CSS filter. */
     #bg {
       position: fixed;
       inset: 0;
       z-index: 0;
-      background: url(backgrounds/momiji-healthy.webp) center / cover no-repeat;
+      background: url(backgrounds/green.webp) center / cover no-repeat;
     }
-    body[data-bg="thriving"] #bg { background-image: url(backgrounds/momiji-thriving.webp); }
-    body[data-bg="sluggish"] #bg { background-image: url(backgrounds/momiji-sluggish.webp); }
-    body[data-bg="rotting"]  #bg { background-image: url(backgrounds/momiji-rotting.webp); }
+    body[data-bg="blossom"]   #bg { background-image: url(backgrounds/blossom.webp); }
+    body[data-bg="autumn"]    #bg { background-image: url(backgrounds/autumn.webp); }
+    body[data-bg="fireflies"] #bg { background-image: url(backgrounds/fireflies.webp); }
+    body[data-bg="snow"]      #bg { background-image: url(backgrounds/snow.webp); }
     .shade {                       /* keeps the bottom tile readable */
       position: fixed;
       inset: 0;
