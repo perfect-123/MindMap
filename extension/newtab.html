@@ -159,6 +159,9 @@
     }
     .fav-link:hover .fav-tile, .fav-add:hover .fav-tile { border-color: rgba(255, 255, 255, 0.36); background: rgba(10, 14, 24, 0.42); transform: translateY(-2px); }
     .fav-link:focus-visible .fav-tile, .fav-add:focus-visible .fav-tile { border-color: rgba(255, 255, 255, 0.7); }
+    /* A site's tile: border faintly tinted with its category colour (--cat) */
+    .fav-link .fav-tile { border-color: color-mix(in srgb, var(--cat, #fff) 45%, transparent); }
+    .fav-link:hover .fav-tile { border-color: color-mix(in srgb, var(--cat, #fff) 80%, transparent); }
     .fav-letter { font-size: 24px; font-weight: 300; line-height: 1; }
     .fav-add .fav-letter { color: rgba(255, 255, 255, 0.6); }
     .fav-name {

@@ -170,8 +170,18 @@ updateClock();
 setInterval(updateClock, 10_000);
 
 // ── Favorites — your own sites as letter tiles ──────────────────────────────
-// Stored in chrome.storage.local "favorites" as [{ url, name }], up to FAV_MAX.
+// Stored in chrome.storage.local "favorites" as [{ url, name }], up to FAV_MAX;
+// FAV_PRESETS until the user saves a list. Each tile's border is faintly
+// tinted with the site's category colour, by the same rules as the dashboard
+// (your site assignment first, then the built-in site list).
 const FAV_MAX = 8;
+const FAV_PRESETS = [
+  { url: 'https://www.youtube.com/',  name: 'YouTube' },
+  { url: 'https://leetcode.com/',     name: 'LeetCode' },
+  { url: 'https://x.com/',            name: 'X' },
+  { url: 'https://github.com/',       name: 'GitHub' },
+  { url: 'https://open.spotify.com/', name: 'Spotify' },
+];
 const favList = document.getElementById('fav-list');
 const favDialog = document.getElementById('fav-dialog');
 const favUrl = document.getElementById('fav-url');
@@ -197,10 +207,20 @@ function defaultName(url) {
   return word.charAt(0).toUpperCase() + word.slice(1);
 }
 
-function renderFavorites() {
+function categoryColor(url, overrides) {
+  const domain = MINDMAP.cleanDomain(url);
+  const key = MINDMAP.normalizeCategory(overrides[domain] || MINDMAP_SITES.lookup(domain)?.category || 'other');
+  return (MINDMAP.CATEGORIES.find((c) => c.key === key) || {}).color;
+}
+
+async function renderFavorites() {
+  await MINDMAP.loadCategories();
+  const overrides = await MINDMAP.getCategoryOverrides();
   const tiles = favorites.map((fav, i) => {
     const li = document.getElementById('fav-template').content.firstElementChild.cloneNode(true);
     li.dataset.i = i;
+    const color = categoryColor(fav.url, overrides);
+    if (color) li.querySelector('.fav-tile').style.setProperty('--cat', color);
     li.querySelector('.fav-link').href = fav.url;
     li.querySelector('.fav-link').title = fav.url;
     li.querySelector('.fav-letter').textContent = (fav.name.match(/[\p{L}\p{N}]/u) || ['•'])[0].toUpperCase();
@@ -254,7 +274,7 @@ document.getElementById('fav-form').addEventListener('submit', (e) => {
 });
 
 async function initFavorites() {
-  ({ favorites = [] } = await chrome.storage.local.get('favorites'));
+  ({ favorites = FAV_PRESETS.slice() } = await chrome.storage.local.get('favorites'));
   renderFavorites();
 }
 
