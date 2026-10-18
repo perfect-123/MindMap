@@ -9,7 +9,7 @@
 Screen Time stops at the app level: it can tell you that you spent three hours in Chrome, but not whether that was a course, the news, or endless scrolling. MindMap is a Chrome extension that fills that gap:
 
 - **Silent tracking**: counts active time per site, pausing when you're idle or away from Chrome
-- **New tab page**: clock, greeting (click it to add your name), a search bar that uses your default search engine, a background scene (blossom, green leaves, autumn, fireflies, snow) that changes with the time of day (or turn Auto off and pick a scene under the brain-health tile), and your 7-day brain score as an album-cover tile
+- **New tab page**: clock, greeting (click it to add your name), your favorite sites as letter tiles, a background scene (blossom, green leaves, autumn, fireflies, snow) that changes with the time of day (or turn Auto off and pick a scene under the brain-health tile), and your 7-day brain score as an album-cover tile
 - **Dashboard**: today's "nutrition label", category breakdowns, weekly trends, a time-of-day heatmap, top sites and a learning streak
 
 Everything is stored locally in the browser. There's no account and no server.
@@ -59,7 +59,7 @@ Reloading keeps your data. **Removing** the extension deletes it.
 ## Using It
 
 - **Your name**: click the greeting on the new tab, type your name and press Enter
-- **Search**: the search bar uses your default search engine. Chrome puts the cursor in the address bar on a new tab, so click the search bar first
+- **Favorites**: click **+** under the clock to add a site (address, optional name). Hover a tile to edit or remove it; up to 8 sites. It starts with YouTube, LeetCode, X, GitHub and Spotify, and each tile's outline is faintly tinted with the site's category colour
 - **Dashboard**: click the brain-score tile on the new tab
 - **Fix a site's category**: in the dashboard, pick a different category next to any site in **Top Sites**, or use the **Categories** panel to assign any site. This re-labels that site's whole history
 - **Your own categories**: in the **Categories** panel, add up to three (e.g. "Job hunt") and choose whether each counts as learning

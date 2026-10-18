@@ -120,31 +120,139 @@
     }
     .name-input::placeholder { color: rgba(255, 255, 255, 0.45); }
 
-    /* ── Search ─────────────────────────────────────── */
-    #search { width: min(560px, 82vw); margin-top: 14px; }
-    #q {
-      width: 100%;
-      height: 50px;
-      padding: 0 26px;
-      border-radius: 99px;
+    /* ── Favorites: letter tiles ───────────────────── */
+    #fav-list {
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 14px;
+      max-width: min(800px, 90vw);
+      margin-top: 14px;
+    }
+    .fav { position: relative; }
+    .fav-link, .fav-add {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      width: 84px;
+      padding: 0;
+      border: 0;
+      background: none;
+      color: inherit;
+      font: inherit;
+      text-decoration: none;
+      cursor: pointer;
+      outline: none;
+    }
+    .fav-tile {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 60px;
+      height: 60px;
+      border-radius: 18px;
       border: 1px solid rgba(255, 255, 255, 0.16);
       background: rgba(10, 14, 24, 0.28);
+      transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+    }
+    .fav-link:hover .fav-tile, .fav-add:hover .fav-tile { border-color: rgba(255, 255, 255, 0.36); background: rgba(10, 14, 24, 0.42); transform: translateY(-2px); }
+    .fav-link:focus-visible .fav-tile, .fav-add:focus-visible .fav-tile { border-color: rgba(255, 255, 255, 0.7); }
+    /* A site's tile: border faintly tinted with its category colour (--cat) */
+    .fav-link .fav-tile { border-color: color-mix(in srgb, var(--cat, #fff) 45%, transparent); }
+    .fav-link:hover .fav-tile { border-color: color-mix(in srgb, var(--cat, #fff) 80%, transparent); }
+    .fav-letter { font-size: 24px; font-weight: 300; line-height: 1; }
+    .fav-add .fav-letter { color: rgba(255, 255, 255, 0.6); }
+    .fav-name {
+      max-width: 84px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 9px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.78);
+    }
+    /* Edit / remove: shown on hover or keyboard focus */
+    .fav-btn {
+      position: absolute;
+      top: -8px;
+      display: grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: rgba(10, 14, 24, 0.88);
+      color: #fff;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+    .fav-edit { left: 2px; }
+    .fav-remove { right: 2px; }
+    .fav:hover .fav-btn, .fav:focus-within .fav-btn { opacity: 1; }
+    .fav-btn:focus-visible { outline: none; border-color: rgba(255, 255, 255, 0.8); }
+
+    /* Add / edit dialog */
+    #fav-dialog {
+      margin: auto;
+      width: min(360px, 90vw);
+      padding: 26px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(13, 20, 36, 0.94);
+      color: var(--ink);
+    }
+    #fav-dialog::backdrop { background: rgba(4, 7, 14, 0.55); }
+    #fav-form { display: flex; flex-direction: column; gap: 16px; }
+    #fav-title { font-size: 11px; font-weight: 400; letter-spacing: var(--tracking); text-transform: uppercase; }
+    #fav-form label {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 9px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ink-2);
+    }
+    #fav-form input {
+      height: 44px;
+      padding: 0 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.04);
       color: #fff;
       font: inherit;
-      font-size: 14px;
-      letter-spacing: 0.06em;
+      font-size: 13px;
+      letter-spacing: 0.04em;
+      text-transform: none;
       outline: none;
-      transition: border-color 0.2s ease, background 0.2s ease;
     }
-    #q::placeholder {
-      color: rgba(255, 255, 255, 0.5);
-      letter-spacing: var(--tracking);
+    #fav-form input:focus { border-color: rgba(255, 255, 255, 0.55); }
+    #fav-form input::placeholder { color: rgba(255, 255, 255, 0.35); }
+    #fav-error { min-height: 1em; font-size: 11px; color: #ffb4a8; }
+    #fav-error:empty { display: none; }
+    .fav-actions { display: flex; justify-content: flex-end; gap: 8px; }
+    .fav-actions button {
+      min-height: 40px;
+      padding: 0 18px;
+      border-radius: 99px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: none;
+      color: rgba(255, 255, 255, 0.85);
+      font: inherit;
+      font-size: 10px;
+      letter-spacing: 0.18em;
       text-transform: uppercase;
-      font-size: 11px;
+      cursor: pointer;
     }
-    #q:hover { border-color: rgba(255, 255, 255, 0.28); }
-    #q:focus { border-color: rgba(255, 255, 255, 0.55); background: rgba(10, 14, 24, 0.4); }
-    #q::-webkit-search-cancel-button { filter: invert(1); opacity: 0.5; }
+    .fav-actions button:hover { border-color: rgba(255, 255, 255, 0.36); }
+    .fav-actions button:focus-visible { outline: none; border-color: rgba(255, 255, 255, 0.8); }
+    .fav-actions .primary { background: rgba(255, 255, 255, 0.88); border-color: transparent; color: #0b1020; }
+    .fav-actions .primary:hover { background: #fff; }
 
     /* ── Bottom row ─────────────────────────────────── */
     .bottom {
@@ -273,9 +381,9 @@
     <div class="center">
       <div id="clock" class="ghost"><span id="time-digits">--:--</span><span id="ampm"></span></div>
       <div id="greeting"></div>
-      <form id="search" role="search">
-        <input id="q" type="search" name="q" placeholder="Search the web" autocomplete="off" aria-label="Search the web" />
-      </form>
+      <nav aria-label="Favorites">
+        <ul id="fav-list"></ul>
+      </nav>
     </div>
 
     <div class="bottom">
@@ -300,6 +408,43 @@
 
     </div>
   </div>
+
+  <dialog id="fav-dialog" aria-labelledby="fav-title">
+    <form id="fav-form" method="dialog">
+      <h2 id="fav-title">Add a favorite</h2>
+      <label>Address <input id="fav-url" type="text" inputmode="url" autocomplete="off" placeholder="github.com" required /></label>
+      <label>Name <input id="fav-name" type="text" autocomplete="off" maxlength="24" placeholder="Optional" /></label>
+      <p id="fav-error" role="alert"></p>
+      <div class="fav-actions">
+        <button type="submit" value="cancel" formnovalidate>Cancel</button>
+        <button type="submit" value="save" class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <template id="fav-template">
+    <li class="fav">
+      <a class="fav-link">
+        <span class="fav-tile"><span class="fav-letter" aria-hidden="true"></span></span>
+        <span class="fav-name"></span>
+      </a>
+      <button type="button" class="fav-btn fav-edit">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>
+      </button>
+      <button type="button" class="fav-btn fav-remove">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </li>
+  </template>
+
+  <template id="fav-add-template">
+    <li class="fav">
+      <button type="button" class="fav-add">
+        <span class="fav-tile"><span class="fav-letter" aria-hidden="true">+</span></span>
+        <span class="fav-name">Add</span>
+      </button>
+    </li>
+  </template>
 
   <script src="sites.js"></script>
   <script src="shared.js"></script>

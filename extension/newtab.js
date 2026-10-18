@@ -169,12 +169,114 @@ function updateClock() {
 updateClock();
 setInterval(updateClock, 10_000);
 
-// ── Search — goes to the user's default search engine ───────────────────────
-document.getElementById('search').addEventListener('submit', (e) => {
-  e.preventDefault();
-  const text = document.getElementById('q').value.trim();
-  if (text) chrome.search.query({ text, disposition: 'CURRENT_TAB' });
+// ── Favorites — your own sites as letter tiles ──────────────────────────────
+// Stored in chrome.storage.local "favorites" as [{ url, name }], up to FAV_MAX;
+// FAV_PRESETS until the user saves a list. Each tile's border is faintly
+// tinted with the site's category colour, by the same rules as the dashboard
+// (your site assignment first, then the built-in site list).
+const FAV_MAX = 8;
+const FAV_PRESETS = [
+  { url: 'https://www.youtube.com/',  name: 'YouTube' },
+  { url: 'https://leetcode.com/',     name: 'LeetCode' },
+  { url: 'https://x.com/',            name: 'X' },
+  { url: 'https://github.com/',       name: 'GitHub' },
+  { url: 'https://open.spotify.com/', name: 'Spotify' },
+];
+const favList = document.getElementById('fav-list');
+const favDialog = document.getElementById('fav-dialog');
+const favUrl = document.getElementById('fav-url');
+const favName = document.getElementById('fav-name');
+const favError = document.getElementById('fav-error');
+let favorites = [];
+let favEditing = -1; // index being edited, -1 when adding
+
+// 'github.com' → 'https://github.com/'; null unless it's an http(s) address
+function normalizeUrl(input) {
+  const raw = input.trim();
+  if (!raw) return null;
+  try {
+    const url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : 'https://' + raw);
+    return /^https?:$/.test(url.protocol) && url.hostname.includes('.') ? url.href : null;
+  } catch { return null; }
+}
+
+// 'https://www.github.com/' → 'Github'
+function defaultName(url) {
+  const parts = MINDMAP.cleanDomain(url).split('.');
+  const word = parts[parts.length - 2] || parts[0] || 'Site';
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
+function categoryColor(url, overrides) {
+  const domain = MINDMAP.cleanDomain(url);
+  const key = MINDMAP.normalizeCategory(overrides[domain] || MINDMAP_SITES.lookup(domain)?.category || 'other');
+  return (MINDMAP.CATEGORIES.find((c) => c.key === key) || {}).color;
+}
+
+async function renderFavorites() {
+  await MINDMAP.loadCategories();
+  const overrides = await MINDMAP.getCategoryOverrides();
+  const tiles = favorites.map((fav, i) => {
+    const li = document.getElementById('fav-template').content.firstElementChild.cloneNode(true);
+    li.dataset.i = i;
+    const color = categoryColor(fav.url, overrides);
+    if (color) li.querySelector('.fav-tile').style.setProperty('--cat', color);
+    li.querySelector('.fav-link').href = fav.url;
+    li.querySelector('.fav-link').title = fav.url;
+    li.querySelector('.fav-letter').textContent = (fav.name.match(/[\p{L}\p{N}]/u) || ['•'])[0].toUpperCase();
+    li.querySelector('.fav-name').textContent = fav.name;
+    li.querySelector('.fav-edit').setAttribute('aria-label', `Edit ${fav.name}`);
+    li.querySelector('.fav-remove').setAttribute('aria-label', `Remove ${fav.name}`);
+    return li;
+  });
+  if (favorites.length < FAV_MAX) {
+    tiles.push(document.getElementById('fav-add-template').content.firstElementChild.cloneNode(true));
+  }
+  favList.replaceChildren(...tiles);
+}
+
+function saveFavorites() {
+  chrome.storage.local.set({ favorites });
+  renderFavorites();
+}
+
+function openFavDialog(i) {
+  favEditing = i;
+  document.getElementById('fav-title').textContent = i >= 0 ? 'Edit favorite' : 'Add a favorite';
+  favUrl.value = i >= 0 ? favorites[i].url : '';
+  favName.value = i >= 0 ? favorites[i].name : '';
+  favError.textContent = '';
+  favDialog.showModal();
+}
+
+favList.addEventListener('click', (e) => {
+  const i = Number(e.target.closest('.fav')?.dataset.i ?? -1);
+  if (e.target.closest('.fav-add')) openFavDialog(-1);
+  else if (e.target.closest('.fav-edit')) openFavDialog(i);
+  else if (e.target.closest('.fav-remove')) {
+    favorites.splice(i, 1);
+    saveFavorites();
+  }
 });
+
+document.getElementById('fav-form').addEventListener('submit', (e) => {
+  if (e.submitter?.value !== 'save') return; // Cancel just closes
+  const url = normalizeUrl(favUrl.value);
+  if (!url) {
+    e.preventDefault();
+    favError.textContent = 'Enter a web address, like github.com';
+    return;
+  }
+  const fav = { url, name: favName.value.trim().slice(0, 24) || defaultName(url) };
+  if (favEditing >= 0) favorites[favEditing] = fav;
+  else favorites.push(fav);
+  saveFavorites();
+});
+
+async function initFavorites() {
+  ({ favorites = FAV_PRESETS.slice() } = await chrome.storage.local.get('favorites'));
+  renderFavorites();
+}
 
 // ── Brain score (last 7 days of local totals, same window as the dashboard) ──
 async function fetchScoreTotals() {
@@ -216,4 +318,5 @@ document.getElementById('brain-widget').addEventListener('click', () => {
   chrome.tabs.create({ url: DASHBOARD_URL });
 });
 initGreeting();
+initFavorites();
 loadBrainScore();
