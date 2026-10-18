@@ -12,7 +12,7 @@ Screen Time stops at the app level: it can tell you that you spent three hours i
 - **New tab page**: clock, greeting (click it to add your name), a search bar that uses your default search engine, a soft blurred aura background, and your 7-day brain score as an album-cover tile
 - **Dashboard**: today's "nutrition label", category breakdowns, weekly trends, a time-of-day heatmap, top sites and a learning streak
 
-Everything is stored locally in the browser. There's no account, no server and no AI service.
+Everything is stored locally in the browser. There's no account and no server.
 
 ---
 
@@ -100,10 +100,6 @@ extension/
 
 ---
 
-## History
+## Credits
 
-MindMap started as a hackathon project ([prospersa1/MindMap](https://github.com/prospersa1/MindMap)) with a Supabase backend, Gemini classification and an AR brain viewer for phones. This fork drops those for a simpler, private, local-only extension.
-
-**Original team:** Perfect (Chrome extension & AI integration), Prosper (dashboard & Supabase backend), Derrick (AR brain experience).
-
-**AI tools used (per MLH transparency rules):** Claude (Anthropic) for code assistance; Google Gemini API for page classification in the hackathon version.
+Forked from [prospersa1/MindMap](https://github.com/prospersa1/MindMap), a hackathon project.
