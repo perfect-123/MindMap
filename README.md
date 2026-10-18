@@ -9,7 +9,7 @@
 Screen Time stops at the app level: it can tell you that you spent three hours in Chrome, but not whether that was a course, the news, or endless scrolling. MindMap is a Chrome extension that fills that gap:
 
 - **Silent tracking**: counts active time per site, pausing when you're idle or away from Chrome
-- **New tab page**: clock, greeting (click it to add your name), a search bar that uses your default search engine, a soft blurred aura background, and your 7-day brain score as an album-cover tile
+- **New tab page**: clock, greeting (click it to add your name), a search bar that uses your default search engine, a soft blurred wallpaper you can change (or have it follow your brain state), and your 7-day brain score as an album-cover tile
 - **Dashboard**: today's "nutrition label", category breakdowns, weekly trends, a time-of-day heatmap, top sites and a learning streak
 
 Everything is stored locally in the browser. There's no account and no server.
@@ -59,6 +59,7 @@ Reloading keeps your data. **Removing** the extension deletes it.
 - **Your name**: click the greeting on the new tab, type your name and press Enter
 - **Search**: the search bar uses your default search engine. Chrome puts the cursor in the address bar on a new tab, so click the search bar first
 - **Dashboard**: click the brain-score tile on the new tab
+- **Wallpaper**: click the picture icon in the bottom-right corner of the new tab. Pick Dusk, Ocean, Forest, Ember or Mono, or **Brain** to have it follow your 7-day score: brighter when you're thriving, duller when you're not
 - **Fix a site's category**: in the dashboard, pick a different category next to any site in **Top Sites**, or use the **Categories** panel to assign any site. This re-labels that site's whole history
 - **Your own categories**: in the **Categories** panel, add up to three (e.g. "Job hunt") and choose whether each counts as learning
 - **Hide Chrome's footer**: Chrome adds a "MindMap Tracker · Customize Chrome" bar to extension new tabs. Right-click it to hide it, or turn off **Show footer on New tab page** under **Customize Chrome**
@@ -78,8 +79,10 @@ extension/
   newtab.html / .js      → New tab page
   dashboard.html / .js   → Dashboard
   theme.css              → Shared look: blurred aura, film grain, monospace type
-  aura.png               → New tab background (tiny pre-blurred colour field)
+  wallpapers/            → New tab wallpapers (tiny pre-blurred colour fields)
   vendor/chart.umd.js    → Chart.js 4.4.3
+tools/
+  make_wallpapers.py     → Generates the wallpapers
 ```
 
 ---
