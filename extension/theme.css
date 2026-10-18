@@ -23,21 +23,9 @@
   --rust: #b0603f;
   --navy: #14213d;
 
-  /* Cover (score tile) depths */
-  --cover-glow: #1b2a6b;
-  --cover-base: #121a2e;
-
   --tracking: 0.32em;
   --radius: 26px;
 }
-
-/* The new tab's scene sets <html data-scene>; the aura and the score covers
-   take its colours (picked from each momiji render) so they sit in the
-   wallpaper. Brain state stays in the dot + label, never the tint. */
-:root[data-scene="spring"] { --sky: #4c98ba; --rust: #3e9786; --navy: #10303a; --cover-glow: #163f4a; --cover-base: #0b1a20; }
-:root[data-scene="autumn"] { --sky: #5f86ad; --rust: #a85c3a; --navy: #14213d; --cover-glow: #1c2a55; --cover-base: #121a2e; }
-:root[data-scene="dry"]    { --sky: #8e7046; --rust: #7e4a2e; --navy: #2a2119; --cover-glow: #3d3326; --cover-base: #17110c; }
-:root[data-scene="faded"]  { --sky: #55585c; --rust: #46423e; --navy: #1e2023; --cover-glow: #2a2c30; --cover-base: #141518; }
 
 * , *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -105,8 +93,8 @@ body {
   background:
     radial-gradient(65% 70% at 85% 15%, color-mix(in srgb, var(--c1) 80%, transparent), transparent 70%),
     radial-gradient(70% 70% at 20% 30%, color-mix(in srgb, var(--c2) 75%, transparent), transparent 72%),
-    radial-gradient(90% 60% at 60% 110%, var(--cover-glow), transparent 70%),
-    var(--cover-base);
+    radial-gradient(90% 60% at 60% 110%, #1b2a6b, transparent 70%),
+    #121a2e;
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
 }
 .cover::before {           /* the horizontal smear band through the middle */

@@ -1,7 +1,4 @@
 // ─── Config (shared constants live in shared.js) ───────────────────────────
-// Same scene as the new tab, so the aura and cover take its colours
-document.documentElement.dataset.scene = MINDMAP.sceneFor(MINDMAP.getSceneMode());
-
 // Built-in + your custom categories; refreshed on every init()
 let CATS, CAT_COLOR, CAT_LABEL;
 function syncCategories() {
@@ -97,6 +94,8 @@ function renderCover(events7d) {
   const has   = total(events7d) > 0;
   const el    = document.getElementById('cover');
 
+  el.style.setProperty('--c1', state.aura[0]);
+  el.style.setProperty('--c2', state.aura[1]);
   el.innerHTML = `
     <div class="grain-layer"></div>
     <div class="cover-title">The<br>last<br>seven<br>days</div>

@@ -41,11 +41,13 @@ const MINDMAP = (() => {
 
   // Highest threshold first; `min` is the minimum learning ratio (0–1)
   // `color` is the status dot (always shown with the label, never alone).
+  // `aura` is the two-tone blurred gradient behind the score "cover":
+  // bright and cool when thriving, dull and ashen when rotting.
   const STATES = [
-    { key: 'thriving', label: 'Thriving', min: 0.55, color: '#00ffcc' },
-    { key: 'healthy',  label: 'Healthy',  min: 0.35, color: '#88aaff' },
-    { key: 'sluggish', label: 'Sluggish', min: 0.15, color: '#aa9988' },
-    { key: 'rotting',  label: 'Rotting',  min: 0,    color: '#888888' },
+    { key: 'thriving', label: 'Thriving', min: 0.55, color: '#00ffcc', aura: ['#5ccfe6', '#1baf7a'] },
+    { key: 'healthy',  label: 'Healthy',  min: 0.35, color: '#88aaff', aura: ['#7fb0e6', '#b0603f'] },
+    { key: 'sluggish', label: 'Sluggish', min: 0.15, color: '#aa9988', aura: ['#8c7d70', '#9a4f33'] },
+    { key: 'rotting',  label: 'Rotting',  min: 0,    color: '#888888', aura: ['#545b68', '#5e5650'] },
   ];
 
   // Normalises a raw category value; unknown or "uncategorized" → "other"
@@ -153,41 +155,6 @@ const MINDMAP = (() => {
     return rows;
   }
 
-  // ─── Background scenes ────────────────────────────────────────────────────
-  // The new tab's momiji scenes. Both pages read the same choice, so the
-  // dashboard and the brain-health tiles take the scene's colours (theme.css
-  // :root[data-scene=…]). Stored in the pages' localStorage as 'auto' or a key.
-  const SCENES = [
-    { key: 'spring', label: 'Spring' },
-    { key: 'autumn', label: 'Autumn' },
-    { key: 'dry',    label: 'Dry' },
-    { key: 'faded',  label: 'Faded' },
-  ];
-  const BG_MODE_KEY = 'mindmap_bg_mode';
-
-  // Auto follows the day: fresh morning, hazy afternoon, golden evening, dim night
-  function sceneForHour(h24) {
-    if (h24 >= 5  && h24 < 12) return 'spring';
-    if (h24 >= 12 && h24 < 17) return 'dry';
-    if (h24 >= 17 && h24 < 21) return 'autumn';
-    return 'faded';
-  }
-
-  // 'auto' or a scene key; pages only (the service worker has no localStorage)
-  function getSceneMode() {
-    let mode = 'auto';
-    try { mode = localStorage.getItem(BG_MODE_KEY) || 'auto'; } catch (_) {}
-    return mode === 'auto' || SCENES.some(s => s.key === mode) ? mode : 'auto';
-  }
-
-  function setSceneMode(mode) {
-    try { localStorage.setItem(BG_MODE_KEY, mode); } catch (_) {}
-  }
-
-  function sceneFor(mode) {
-    return mode === 'auto' ? sceneForHour(new Date().getHours()) : mode;
-  }
-
   return {
     get CATEGORIES() { return categories; },
     get CATEGORY_KEYS() { return keys; },
@@ -195,6 +162,5 @@ const MINDMAP = (() => {
     normalizeCategory, isLearning, brainState,
     loadCategories, addCustomCategory, removeCustomCategory,
     getCategoryOverrides, setCategoryOverride, cleanDomain, readRows,
-    SCENES, sceneForHour, getSceneMode, setSceneMode, sceneFor,
   };
 })();

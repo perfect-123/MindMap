@@ -3,32 +3,49 @@
 const DASHBOARD_URL = chrome.runtime.getURL('dashboard.html');
 
 // ── Background — one momiji scene, by time of day or picked by the user ─────
-// The choice ('auto' or a scene key) is read synchronously before first paint
-// via MINDMAP.getSceneMode(). Under the tile, the Scene button steps through
-// MINDMAP.SCENES and the Auto switch toggles. Setting <html data-scene> also
-// gives the brain-health tile the scene's colours (theme.css).
-const { SCENES } = MINDMAP;
-let bgMode = MINDMAP.getSceneMode();
-try { localStorage.removeItem('mindmap_bg'); } catch {} // old brain-state cache
+// The choice lives in localStorage (synchronous, so the scene is set before
+// first paint): 'auto', or the key of the scene the user picked. Under the
+// tile, the Scene button steps through SCENES and the Auto switch toggles.
+const BG_MODE_KEY = 'mindmap_bg_mode';
+const SCENES = [
+  { key: 'spring', label: 'Spring' },
+  { key: 'autumn', label: 'Autumn' },
+  { key: 'dry',    label: 'Dry' },
+  { key: 'faded',  label: 'Faded' },
+];
+
+// Auto follows the day: fresh morning, hazy afternoon, golden evening, dim night
+function sceneForHour(h24) {
+  if (h24 >= 5  && h24 < 12) return 'spring';
+  if (h24 >= 12 && h24 < 17) return 'dry';
+  if (h24 >= 17 && h24 < 21) return 'autumn';
+  return 'faded';
+}
+
+let bgMode = 'auto';
+try {
+  bgMode = localStorage.getItem(BG_MODE_KEY) || 'auto';
+  localStorage.removeItem('mindmap_bg'); // old brain-state cache
+} catch {}
+if (bgMode !== 'auto' && !SCENES.some((s) => s.key === bgMode)) bgMode = 'auto';
 
 const bgName = document.getElementById('bg-name');
 const bgAuto = document.getElementById('bg-auto');
 
 function currentScene() {
-  return MINDMAP.sceneFor(bgMode);
+  return bgMode === 'auto' ? sceneForHour(new Date().getHours()) : bgMode;
 }
 
 function applyBackground() {
   const scene = currentScene();
   if (document.body.dataset.bg === scene && bgName.textContent) return;
   document.body.dataset.bg = scene;
-  document.documentElement.dataset.scene = scene;
   bgName.textContent = SCENES.find((s) => s.key === scene).label;
 }
 
 function setBgMode(mode) {
   bgMode = mode;
-  MINDMAP.setSceneMode(bgMode);
+  try { localStorage.setItem(BG_MODE_KEY, bgMode); } catch {}
   bgAuto.setAttribute('aria-checked', String(bgMode === 'auto'));
   applyBackground();
 }
@@ -276,6 +293,9 @@ async function loadBrainScore() {
     const pct = Math.round(ratio * 100);
     const state = MINDMAP.brainState(ratio);
 
+    const tile = document.getElementById('brain-widget');
+    tile.style.setProperty('--c1', state.aura[0]);
+    tile.style.setProperty('--c2', state.aura[1]);
     document.getElementById('score-num').innerHTML = total > 0 ? `${pct}<small>%</small>` : '—';
     document.getElementById('state-name').innerHTML = total > 0
       ? `<span class="state-dot" style="background:${state.color}"></span>${state.label}`
