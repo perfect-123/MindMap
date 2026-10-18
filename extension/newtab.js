@@ -171,8 +171,6 @@ setInterval(updateClock, 10_000);
 
 // ── Favorites — your own sites as letter tiles ──────────────────────────────
 // Stored in chrome.storage.local "favorites" as [{ url, name }], up to FAV_MAX.
-// Each tile's dot is the site's category, by the same rules as the dashboard
-// (your site assignment first, then the built-in site list).
 const FAV_MAX = 8;
 const favList = document.getElementById('fav-list');
 const favDialog = document.getElementById('fav-dialog');
@@ -199,26 +197,14 @@ function defaultName(url) {
   return word.charAt(0).toUpperCase() + word.slice(1);
 }
 
-function categoryFor(url, overrides) {
-  const domain = MINDMAP.cleanDomain(url);
-  const key = MINDMAP.normalizeCategory(overrides[domain] || MINDMAP_SITES.lookup(domain)?.category || 'other');
-  return MINDMAP.CATEGORIES.find((c) => c.key === key) || MINDMAP.CATEGORIES.find((c) => c.key === 'other');
-}
-
-async function renderFavorites() {
-  await MINDMAP.loadCategories();
-  const overrides = await MINDMAP.getCategoryOverrides();
+function renderFavorites() {
   const tiles = favorites.map((fav, i) => {
     const li = document.getElementById('fav-template').content.firstElementChild.cloneNode(true);
-    const cat = categoryFor(fav.url, overrides);
     li.dataset.i = i;
     li.querySelector('.fav-link').href = fav.url;
     li.querySelector('.fav-link').title = fav.url;
     li.querySelector('.fav-letter').textContent = (fav.name.match(/[\p{L}\p{N}]/u) || ['•'])[0].toUpperCase();
     li.querySelector('.fav-name').textContent = fav.name;
-    li.querySelector('.fav-dot').style.background = cat.color;
-    li.querySelector('.fav-dot').title = cat.label;
-    li.querySelector('.fav-cat').textContent = `, ${cat.label}`;
     li.querySelector('.fav-edit').setAttribute('aria-label', `Edit ${fav.name}`);
     li.querySelector('.fav-remove').setAttribute('aria-label', `Remove ${fav.name}`);
     return li;

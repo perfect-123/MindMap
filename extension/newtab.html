@@ -120,7 +120,7 @@
     }
     .name-input::placeholder { color: rgba(255, 255, 255, 0.45); }
 
-    /* ── Favorites: letter tiles, dot = the site's category ── */
+    /* ── Favorites: letter tiles ───────────────────── */
     #fav-list {
       list-style: none;
       display: flex;
@@ -161,14 +161,6 @@
     .fav-link:focus-visible .fav-tile, .fav-add:focus-visible .fav-tile { border-color: rgba(255, 255, 255, 0.7); }
     .fav-letter { font-size: 24px; font-weight: 300; line-height: 1; }
     .fav-add .fav-letter { color: rgba(255, 255, 255, 0.6); }
-    .fav-dot {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-    }
     .fav-name {
       max-width: 84px;
       overflow: hidden;
@@ -430,8 +422,8 @@
   <template id="fav-template">
     <li class="fav">
       <a class="fav-link">
-        <span class="fav-tile"><span class="fav-letter" aria-hidden="true"></span><span class="fav-dot"></span></span>
-        <span class="fav-name"></span><span class="sr-only fav-cat"></span>
+        <span class="fav-tile"><span class="fav-letter" aria-hidden="true"></span></span>
+        <span class="fav-name"></span>
       </a>
       <button type="button" class="fav-btn fav-edit">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>
