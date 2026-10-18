@@ -2,15 +2,50 @@
 
 > Your browsing diet, visualized. MindMap quietly tracks where your active time goes online and shows it back to you, without your history ever leaving your browser.
 
+![MindMap's new tab: a big clock and greeting over an autumn momiji scene, shortcuts top-right, brain-health tile bottom-left](docs/screenshots/newtab-autumn.webp)
+
 ---
 
 ## What It Does
 
-Screen Time stops at the app level: it can tell you that you spent three hours in Chrome, but not whether that was a course, the news, or endless scrolling. MindMap is a Chrome extension that fills that gap:
+Screen Time stops at the app level: it can tell you that you spent three hours in Chrome, but not whether that was a course, the news, or endless scrolling. MindMap is a Chrome extension that fills that gap. It counts your active time per site in the background, pausing when you're idle or away from Chrome, and shows it back to you in two places.
 
-- **Silent tracking**: counts active time per site, pausing when you're idle or away from Chrome
-- **New tab page**: clock, greeting (click it to add your name), your favorite sites as a small text row in the top-right corner, a momiji (Japanese maple) background in four seasons (spring, autumn, dry, faded) that changes with the time of day (or turn Auto off and pick a scene under the brain-health tile), and your 7-day brain score as an album-cover tile
-- **Dashboard**: today's "nutrition label", category breakdowns, weekly trends, top sites and a learning streak
+### A minimal new tab
+
+Every new tab is calm and quiet, and tells you how your browsing is going as you browse:
+
+- **A clock and a greeting** that changes with the time of day (click it to add your name)
+- **Your shortcuts** as a small row of names in the top-right corner. It starts with YouTube, LeetCode, X, GitHub and Spotify; add, edit or remove your own (up to 8)
+- **Your brain health** in the bottom-left: your learning share over the last 7 days, your level (Thriving, Healthy, Sluggish or Rotting, in its colour) and a bar showing where you sit between the levels. Click it to open the dashboard
+
+### A dashboard
+
+![The MindMap dashboard: 7-day brain health cover with the level bar, today's diet by category, and hours by category for the week](docs/screenshots/dashboard.webp)
+
+- **The last seven days**: your learning share, your level, and a key of all four levels and their ranges
+- **Today's diet**: active time today, split into Learning, Entertainment, Productivity, Social Media, News and Other
+- **This week**: hours per day by category
+- **30-day trend** of your learning share, and your **healthy-day streak**
+- **Top sites**, where you can correct any site's category, and a **Categories** panel for your own categories
+
+### Backgrounds that change through the day
+
+The new tab comes with four "Momiji through the seasons" backgrounds: Japanese maple leaves drifting over a soft, blurred sky, one leaf in focus. With **Auto** on (the default), the scene follows the time of day:
+
+| Time | Scene |
+|---|---|
+| 5am–noon | **Spring**: fresh greens |
+| noon–5pm | **Dry**: ochre and brown haze |
+| 5pm–9pm | **Autumn**: sky blue and rust |
+| 9pm–5am | **Faded**: ash grey |
+
+Turn Auto off and click the scene name under the brain-health tile to pick one yourself.
+
+| Spring | Dry |
+|---|---|
+| ![Spring scene](docs/screenshots/newtab-spring.webp) | ![Dry scene](docs/screenshots/newtab-dry.webp) |
+| **Autumn** | **Faded** |
+| ![Autumn scene](docs/screenshots/newtab-autumn.webp) | ![Faded scene](docs/screenshots/newtab-faded.webp) |
 
 Everything is stored locally in the browser. There's no account and no server.
 
@@ -20,12 +55,12 @@ Everything is stored locally in the browser. There's no account and no server.
 
 Based on the share of your active time over the last 7 days spent on **learning**, **productivity** and **news** sites (plus any custom category you mark as learning):
 
-| State | Condition |
-|---|---|
-| 🟦 Thriving | ≥55% |
-| 🔵 Healthy | ≥35% |
-| 🟫 Sluggish | ≥15% |
-| ⬛ Rotting | <15% |
+| State | Learning share | Colour |
+|---|---|---|
+| Thriving | 55% and up | aqua |
+| Healthy | 35–54% | blue |
+| Sluggish | 15–34% | brown |
+| Rotting | under 15% | grey |
 
 Pages are labelled Learning, Entertainment, Social Media, Productivity, News or Other using a built-in list of ~200 sites (Canvas, LeetCode, Canva, Google Docs, YouTube…) and page-title keywords. In the dashboard's **Categories** panel you can assign any site to any category, and create up to three categories of your own, choosing whether each counts as learning.
 
@@ -41,7 +76,7 @@ MindMap isn't on the Chrome Web Store; you load it straight from this folder. It
 2. Open `chrome://extensions` and turn on **Developer mode** (top right)
 3. Click **Load unpacked** and select the **`extension`** folder inside it (A folder inside the repo called extension, not the repo folder itself)
 4. Open a new tab. If Chrome asks whether to keep the changed new tab page, choose **Keep it**
-6. To remove this bar: <img width="1904" height="588" alt="image" src="https://github.com/user-attachments/assets/23ad442e-2185-4337-829c-e098151b674a" />
+5. To remove this bar: <img width="1904" height="588" alt="image" src="https://github.com/user-attachments/assets/23ad442e-2185-4337-829c-e098151b674a" />
 right-click the bar and choose the option to hide the footer.
 
 Keep the folder where it is: Chrome runs the extension from it.
@@ -79,9 +114,11 @@ extension/
   shared.js              → Shared constants (categories, colours, brain-state thresholds)
   newtab.html / .js      → New tab page
   dashboard.html / .js   → Dashboard
-  theme.css              → Shared look: blurred aura, film grain, monospace type
+  theme.css              → Shared look: blurred aura, film grain, monospace type, level bar
   backgrounds/           → New tab backgrounds: four momiji scenes (rendered by tools/render-momiji.js)
   vendor/chart.umd.js    → Chart.js 4.4.3
+tools/                   → Renders the momiji backgrounds (not part of the extension)
+docs/screenshots/        → Images used in this README
 ```
 
 ---
