@@ -16,7 +16,8 @@ The extension runs during all of the user's browsing, so it must stay cheap. **B
 
 ## Files (`extension/`)
 - `manifest.json` — MV3. Permissions: `tabs`, `storage`, `windows`, `idle`, `search`; no host permissions.
-- `background.js` — service worker entry: loads `shared.js` + `tracker.js`, defines `classifyLocally()`.
+- `background.js` — service worker entry: loads `sites.js` + `shared.js` + `tracker.js`, defines `classifyLocally()`.
+- `sites.js` — built-in site → category list (below).
 - `tracker.js` — the tracker (below).
 - `shared.js` — shared constants (below).
 - `newtab.html` / `newtab.js` — new tab override: ghosted clock, greeting, search bar, the fixed `aura.png` background, and the 7-day score as a small cover tile tinted by brain state (`MINDMAP.readRows(7)`). Clicking the tile opens `chrome.runtime.getURL('dashboard.html')`.
@@ -42,13 +43,15 @@ Modelled on a blurred album-art "now playing" screen: a sky-blue / rust aura fad
 - If Chrome crashes, the open segment since the last event is lost.
 
 ## Classification
-- `classifyLocally(url, title)` in `background.js`: domain regexes first, then title keywords. Free, instant, no network.
-- Mixed sites (e.g. YouTube) only get a non-default label if the title has words like "tutorial".
-- **Per-site overrides:** set from the dashboard's Top Sites table, stored in `chrome.storage.local` `category_overrides` (`{ domain: category }`). Applied when data is read (`MINDMAP.readRows`), not when recorded, so they re-label all history instantly and can be undone ("↺ Automatic"). An override applies to all of a site's time, including title-based labels. Only sites in the top 10 for the week can be corrected for now.
-- Always read data through `MINDMAP.readRows()` so overrides are applied everywhere.
+- **`sites.js`** (`MINDMAP_SITES.lookup(hostname)`): the built-in site list — ~200 domains → category, matched on the hostname and each parent domain (so `uci.instructure.com` hits `instructure.com`), then prefixes (`canvas.`, `moodle.`, `docs.`, `developer.`, `learn.` …), then any `.edu` → learning. **Mixed** sites (YouTube, Vimeo…) carry a fallback category but let the title decide first. To add a site, add a line there.
+- **`classifyLocally(url, title)`** in `background.js` runs at record time: site list → title keywords (tutorial/course/lecture… → learning, etc.) → mixed-site fallback → `other`. Free, instant, no network.
+- **At read time** (`MINDMAP.readRows`): your site assignment wins; otherwise the stored label; and time stored as `other` is re-checked against the current site list, so new rules also re-label past days.
+- **Site assignments** (`category_overrides`, `{ domain: categoryKey }`): set from the dashboard's Top Sites dropdowns or the Categories panel ("Assign"), which accepts any site and normalises input with `MINDMAP.cleanDomain()`. "↺ Automatic" / × removes one.
+- **Custom categories** (`custom_categories`, `[{ key: 'custom:<slug>-<id>', label, color, learning }]`): created in the dashboard's Categories panel, with a "counts as learning" flag. Max **3**: they take the reference palette's remaining dark steps `#008300`, `#9085e9`, `#e66767`, assigned at creation and kept for life (colour follows the category). They sort after "Other" so they never sit next to magenta (red↔magenta fails the validator); every pair that can become adjacent passes. Deleting one also removes its site assignments. Labels are restricted to letters, numbers, spaces and `- ' . + /` because they are rendered into page markup.
+- Always read data through `MINDMAP.readRows()` (it also loads custom categories) so assignments and new site rules apply everywhere.
 
 ## Shared constants (`shared.js`)
-Classic script (no `import`/`export`) loaded via `importScripts` in the service worker and `<script src>` in pages. Exposes one global, `MINDMAP`: `CATEGORIES` (key/label/colour), `CATEGORY_KEYS`, `LEARNING_CATEGORIES`, `STATES`, helpers `normalizeCategory()`, `isLearning()`, `brainState(ratio)`, and data access `readRows(days)`, `getCategoryOverrides()`, `setCategoryOverride(domain, category|null)`. Change categories, colours or thresholds here only; `classifyLocally()` must return only these keys. Category colours and their **order** were validated with the dataviz skill's `validate_palette.js` against the dark surface (#0d1424); the order matters because neighbouring stack segments must stay distinguishable. Re-run it if you change either.
+Classic script (no `import`/`export`) loaded after `sites.js` via `importScripts` in the service worker and `<script src>` in pages. Exposes one global, `MINDMAP`: `CATEGORIES` / `CATEGORY_KEYS` (getters: built-in + custom, refreshed by `loadCategories()` and `readRows()`), `STATES`, `MAX_CUSTOM`, helpers `normalizeCategory()`, `isLearning()`, `brainState(ratio)`, `cleanDomain()`, custom-category `addCustomCategory(label, learning)` / `removeCustomCategory(key)`, and data access `readRows(days)`, `getCategoryOverrides()`, `setCategoryOverride(domain, category|null)`. Change built-in categories, colours or thresholds here only; `classifyLocally()` and `sites.js` must return only built-in keys. Category colours and their **order** were validated with the dataviz skill's `validate_palette.js` against the dark surface (#0d1424); the order matters because neighbouring stack segments must stay distinguishable. Re-run it if you change either.
 
 ### Categories
 | Category | Counts as | Colour |
