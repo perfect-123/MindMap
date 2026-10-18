@@ -2,19 +2,51 @@
 
 const DASHBOARD_URL = chrome.runtime.getURL('dashboard.html');
 
-// ── Background — one momiji scene per brain state ───────────────────────────
-// The last state is cached in localStorage so the right scene is chosen before
-// first paint; loadBrainScore() corrects it once the score is known.
-const BG_KEY = 'mindmap_bg';
-const BG_STATES = ['thriving', 'healthy', 'sluggish', 'rotting'];
+// ── Background — one momiji scene, by time of day or picked by the user ─────
+// The choice lives in localStorage (synchronous, so the scene is set before
+// first paint). The bottom-right button cycles through BG_MODES.
+const BG_MODE_KEY = 'mindmap_bg_mode';
+const BG_MODES = [
+  { key: 'auto',     label: 'Auto' },
+  { key: 'thriving', label: 'Spring' },
+  { key: 'healthy',  label: 'Autumn' },
+  { key: 'sluggish', label: 'Dry' },
+  { key: 'rotting',  label: 'Faded' },
+];
 
-function setBackground(key) {
-  if (!BG_STATES.includes(key)) key = 'healthy';
-  document.body.dataset.bg = key;
-  try { localStorage.setItem(BG_KEY, key); } catch {}
+// Auto follows the day: fresh morning, hazy afternoon, golden evening, dim night
+function sceneForHour(h24) {
+  if (h24 >= 5  && h24 < 12) return 'thriving';
+  if (h24 >= 12 && h24 < 17) return 'sluggish';
+  if (h24 >= 17 && h24 < 21) return 'healthy';
+  return 'rotting';
 }
 
-try { setBackground(localStorage.getItem(BG_KEY)); } catch { setBackground('healthy'); }
+let bgMode = 'auto';
+try {
+  bgMode = localStorage.getItem(BG_MODE_KEY) || 'auto';
+  localStorage.removeItem('mindmap_bg'); // old brain-state cache
+} catch {}
+if (!BG_MODES.some((m) => m.key === bgMode)) bgMode = 'auto';
+
+const bgName = document.getElementById('bg-name');
+
+function applyBackground() {
+  const scene = bgMode === 'auto' ? sceneForHour(new Date().getHours()) : bgMode;
+  if (document.body.dataset.bg === scene && bgName.textContent) return;
+  document.body.dataset.bg = scene;
+  const sceneLabel = BG_MODES.find((m) => m.key === scene).label;
+  bgName.textContent = bgMode === 'auto' ? `Auto · ${sceneLabel}` : sceneLabel;
+}
+
+document.getElementById('bg-picker').addEventListener('click', () => {
+  const i = BG_MODES.findIndex((m) => m.key === bgMode);
+  bgMode = BG_MODES[(i + 1) % BG_MODES.length].key;
+  try { localStorage.setItem(BG_MODE_KEY, bgMode); } catch {}
+  bgName.textContent = '';
+  applyBackground();
+});
+applyBackground();
 
 // ── Greeting ─────────────────────────────────────────────────────────────────
 // Each greeting is [text, ending]; the name (if set) goes before the ending,
@@ -117,6 +149,7 @@ function updateClock() {
   const m = String(now.getMinutes()).padStart(2, '0');
   document.getElementById('time-digits').textContent = `${h24 % 12 || 12}:${m}`;
   document.getElementById('ampm').textContent = h24 < 12 ? 'AM' : 'PM';
+  applyBackground(); // Auto moves to the next scene when the hour crosses a boundary
 }
 updateClock();
 setInterval(updateClock, 10_000);
@@ -145,7 +178,6 @@ async function loadBrainScore() {
     const ratio = total > 0 ? learning / total : 0;
     const pct = Math.round(ratio * 100);
     const state = MINDMAP.brainState(ratio);
-    setBackground(total > 0 ? state.key : 'healthy');
 
     const tile = document.getElementById('brain-widget');
     tile.style.setProperty('--c1', state.aura[0]);

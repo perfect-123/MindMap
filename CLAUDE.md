@@ -6,7 +6,7 @@ MindMap is a Chrome extension that shows how you spend your time online: how muc
 | Part | Files | What it does |
 |---|---|---|
 | Tracker | `extension/tracker.js` + `background.js` | Counts active time per site/category, stores daily totals locally |
-| New tab | `extension/newtab.html` / `newtab.js` | Clock, greeting, search bar, fixed aura background, 7-day brain score. Planned to grow into a "good morning"-style page |
+| New tab | `extension/newtab.html` / `newtab.js` | Clock, greeting, search bar, momiji background (time of day or picked), 7-day brain score. Planned to grow into a "good morning"-style page |
 | Dashboard | `extension/dashboard.html` / `dashboard.js` | Category breakdowns, weekly trends, time-of-day heatmap, top sites, streak |
 
 This repo is a fork of `prospersa1/MindMap` (a hackathon project). The fork dropped Supabase, the AR brain viewer, the landing page and Gemini classification — see git history before commit "Phase 3" for those.
@@ -20,8 +20,8 @@ The extension runs during all of the user's browsing, so it must stay cheap. **B
 - `sites.js` — built-in site → category list (below).
 - `tracker.js` — the tracker (below).
 - `shared.js` — shared constants (below).
-- `newtab.html` / `newtab.js` — new tab override: ghosted clock, greeting, search bar, a momiji background picked by brain state, and the 7-day score as a small cover tile tinted by brain state (`MINDMAP.readRows(7)`). Clicking the tile opens `chrome.runtime.getURL('dashboard.html')`.
-- `backgrounds/momiji-<state>.webp` — the new tab backgrounds, one per brain state (1920×1200, 15–30 KB each): a blurred colour field with drawn Japanese maple leaves drifting down-left, their season following the state (spring green → autumn red → dry brown → ash grey). `newtab.js` sets `body[data-bg]` from the state cached in `localStorage` (`mindmap_bg`) before first paint and corrects it once the score loads; no data → healthy. They are rendered, not hand-edited: change `tools/momiji.html` and run `tools/render-momiji.js` (see its header). (Replaced `aura.png`, which replaced the daily Unsplash photo; `background.js` clears the old `unsplash_cache` key on update.)
+- `newtab.html` / `newtab.js` — new tab override: ghosted clock, greeting, search bar, a momiji background (by time of day, or picked with the bottom-right button), and the 7-day score as a small cover tile tinted by brain state (`MINDMAP.readRows(7)`). Clicking the tile opens `chrome.runtime.getURL('dashboard.html')`.
+- `backgrounds/momiji-<scene>.webp` — the new tab backgrounds (1920×1200, 15–30 KB each): a blurred colour field with drawn Japanese maple leaves drifting down-left. Four scenes, named after the brain states they were designed for: `thriving` Spring (green), `healthy` Autumn (red), `sluggish` Dry (brown), `rotting` Faded (grey). The background does **not** follow brain state: the bottom-right button cycles Auto → Spring → Autumn → Dry → Faded, saved in `localStorage` `mindmap_bg_mode` (synchronous, so `body[data-bg]` is set before first paint). Auto follows the time of day — 5–12 Spring, 12–17 Dry, 17–21 Autumn, 21–5 Faded — and is re-checked on the clock's 10 s tick, so an open tab changes scene at the boundary. They are rendered, not hand-edited: change `tools/momiji.html` and run `tools/render-momiji.js` (see its header). (Replaced `aura.png`, which replaced the daily Unsplash photo; `background.js` clears the old `unsplash_cache` key on update.)
 - `dashboard.html` / `dashboard.js` — reads the last 30 days via `MINDMAP.readRows(30)`; each row is `{ domain, cat, dur, dk, hour }`, the shape the chart renderers use. The Top Sites category badges are `<select>`s for correcting a site's category; changing one saves the override and re-runs `init()` (which destroys existing Chart instances first).
 - `vendor/chart.umd.js` — Chart.js 4.4.3 from npm, unmodified.
 - `theme.css` — shared look for both pages (below).
