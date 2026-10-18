@@ -39,8 +39,10 @@ MindMap isn't on the Chrome Web Store; you load it straight from this folder. It
    - `git clone https://github.com/perfect-123/MindMap.git`, or
    - on GitHub, click **Code → Download ZIP** and unzip it
 2. Open `chrome://extensions` and turn on **Developer mode** (top right)
-3. Click **Load unpacked** and select the **`extension`** folder inside it (not the repo folder itself)
+3. Click **Load unpacked** and select the **`extension`** folder inside it (A folder inside the repo called extension, not the repo folder itself)
 4. Open a new tab. If Chrome asks whether to keep the changed new tab page, choose **Keep it**
+6. To remove this bar: <img width="1904" height="588" alt="image" src="https://github.com/user-attachments/assets/23ad442e-2185-4337-829c-e098151b674a" />
+right-click the bar and choose the option to hide the footer.
 
 Keep the folder where it is: Chrome runs the extension from it.
 
