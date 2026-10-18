@@ -46,7 +46,7 @@
       display: flex;
       align-items: flex-start;
       gap: 0.12em;
-      font-size: clamp(6rem, 17vw, 13rem);
+      font-size: clamp(4.5rem, 12vw, 8.5rem);
       font-weight: 300;
       letter-spacing: 0.04em;
       line-height: 1;
@@ -57,32 +57,6 @@
       color: rgba(255, 255, 255, 0.6);
       margin-top: 0.4em;
     }
-    /* The clock's ghost drifts like the leaves: falling down-left, so the
-       trail sits up-right, tinted to the season (overrides theme.css .ghost) */
-    body[data-bg="spring"] #clock.ghost {
-      text-shadow:
-        0.08em -0.05em 0.04em rgba(205, 240, 195, 0.32),
-        0.18em -0.12em 0.08em rgba(205, 240, 195, 0.18),
-        0.30em -0.20em 0.14em rgba(205, 240, 195, 0.08);
-    }
-    body[data-bg="autumn"] #clock.ghost {
-      text-shadow:
-        0.08em -0.05em 0.04em rgba(255, 196, 150, 0.32),
-        0.18em -0.12em 0.08em rgba(240, 150, 100, 0.18),
-        0.30em -0.20em 0.14em rgba(200, 90, 60, 0.08);
-    }
-    body[data-bg="dry"] #clock.ghost {
-      text-shadow:
-        0.07em -0.04em 0.04em rgba(232, 204, 160, 0.26),
-        0.15em -0.09em 0.08em rgba(232, 204, 160, 0.14),
-        0.24em -0.14em 0.14em rgba(232, 204, 160, 0.06);
-    }
-    body[data-bg="faded"] #clock.ghost {
-      text-shadow:
-        0.05em -0.03em 0.04em rgba(210, 210, 208, 0.20),
-        0.11em -0.07em 0.08em rgba(210, 210, 208, 0.10);
-    }
-
     #greeting {
       font-size: clamp(15px, 1.5vw, 20px);
       letter-spacing: var(--tracking);
@@ -364,7 +338,7 @@
 
   <div id="content">
     <div class="center">
-      <div id="clock" class="ghost"><span id="time-digits">--:--</span><span id="ampm"></span></div>
+      <div id="clock"><span id="time-digits">--:--</span><span id="ampm"></span></div>
       <div id="greeting"></div>
       <nav aria-label="Favorites">
         <ul id="fav-list"></ul>
