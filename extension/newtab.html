@@ -22,12 +22,6 @@
     body[data-bg="autumn"]    #bg { background-image: url(backgrounds/autumn.webp); }
     body[data-bg="fireflies"] #bg { background-image: url(backgrounds/fireflies.webp); }
     body[data-bg="snow"]      #bg { background-image: url(backgrounds/snow.webp); }
-    .shade {                       /* keeps the bottom tile readable */
-      position: fixed;
-      inset: 0;
-      z-index: 1;
-      background: linear-gradient(180deg, rgba(7, 11, 20, 0.15) 0%, rgba(7, 11, 20, 0.35) 55%, rgba(7, 11, 20, 0.85) 100%);
-    }
     .grain { z-index: 2; }
 
     #content {
@@ -374,7 +368,6 @@
 <body>
   <div class="aura"></div>
   <div id="bg"></div>
-  <div class="shade"></div>
   <div class="grain"></div>
 
   <div id="content">
